@@ -1,0 +1,42 @@
+#*********************************************************************************************************
+# Beelink GT1 Classic Official IR Remote Keymap (custom_code = 0x7f80)
+# Verified from live_fdt.dts (/custom_maps/map_2) on GT-T_V30_20160831
+#*********************************************************************************************************
+custom_name = beelink-gt1-remote
+custom_code = 0x7f80
+release_delay = 80
+
+fn_key_scancode = 0x52
+cursor_left_scancode = 0x25
+cursor_right_scancode = 0x27
+cursor_up_scancode = 0x26
+cursor_down_scancode = 0x28
+cursor_ok_scancode = 0x0d
+
+key_begin
+	0x51 116
+	0x4d 113
+	0x53 102
+	0x1b 158
+	0x49 127
+	0x0d 97
+	0x26 103
+	0x28 108
+	0x25 105
+	0x27 106
+	0x4e 115
+	0x56 114
+	0x44 14
+	0x31 2
+	0x32 3
+	0x33 4
+	0x34 5
+	0x35 6
+	0x36 7
+	0x37 8
+	0x38 9
+	0x39 10
+	0x30 11
+	0xbb 163
+	0xbd 165
+key_end

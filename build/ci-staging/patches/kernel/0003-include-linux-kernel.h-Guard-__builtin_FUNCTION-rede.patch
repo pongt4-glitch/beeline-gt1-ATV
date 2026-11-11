@@ -1,0 +1,37 @@
+From 89facf8b4696d54f3a1a2c3f717372021bcd71e9 Mon Sep 17 00:00:00 2001
+From: Pong <pong@MacBook-Air-khxng-Pong.local>
+Date: Wed, 11 Nov 2026 19:45:05 +0700
+Subject: [PATCH 3/3] include/linux/kernel.h: Guard __builtin_FUNCTION
+ redeclaration under Clang (-DMODULE)
+
+---
+ include/linux/kernel.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index 91ed111d..38f253bb 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -140,7 +140,9 @@
+ #define _THIS_IP_  ({ __label__ __here; __here: (unsigned long)&&__here; })
+ #ifdef CONFIG_AMLOGIC_MODIFY
+ #ifdef MODULE
++#ifndef __clang__
+ const char *__builtin_FUNCTION(void);
++#endif
+ #define __MY_FUNC__		(__builtin_FUNCTION())
+ #else
+ static inline const char *__my_pc__(void)
+@@ -163,7 +165,9 @@ static inline const char *__my_pc__(void)
+ #define __MY_FUNC__		(__my_pc__())
+ #endif
+ #else
++#ifndef __clang__
+ const char *__builtin_FUNCTION(void);
++#endif
+ #define __MY_FUNC__		(__builtin_FUNCTION())
+ #endif /* CONFIG_AMLOGIC_MODIFY */
+ 
+-- 
+2.54.0 (Apple Git-157)
+

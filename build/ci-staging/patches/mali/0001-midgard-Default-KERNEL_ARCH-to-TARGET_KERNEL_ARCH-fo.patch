@@ -1,0 +1,25 @@
+From dc5257491698cab2df0f1bc34d5afe0309dfe14e Mon Sep 17 00:00:00 2001
+From: Pong <pong@MacBook-Air-khxng-Pong.local>
+Date: Wed, 11 Nov 2026 19:09:52 +0700
+Subject: [PATCH] midgard: Default KERNEL_ARCH to TARGET_KERNEL_ARCH for Kati
+ target resolution
+
+---
+ midgard/Android.mk | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/midgard/Android.mk b/midgard/Android.mk
+index cc78036..a465212 100644
+--- a/midgard/Android.mk
++++ b/midgard/Android.mk
+@@ -18,6 +18,7 @@ LOCAL_PATH := $(call my-dir)
+ 
+ ifeq ($(TARGET_PREBUILT_KERNEL),)
+ 
++KERNEL_ARCH     ?= $(TARGET_KERNEL_ARCH)
+ MALI_GPU_VARIANT ?= midgard
+ MALI_DRV_VERSION ?= r28p0
+ #MALI_PATH        := $(abspath $(call my-dir))
+-- 
+2.54.0 (Apple Git-157)
+

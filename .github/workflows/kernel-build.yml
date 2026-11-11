@@ -1,0 +1,96 @@
+name: Beelink GT1 Kernel 4.9.113 & Modules (Ubuntu 22.04 Free Runner)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: beelink-gt1-kernel-build
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-and-modules-arm64:
+    name: Build Kernel 4.9.113 ARM64, Mali r28p0 & QCA9377 (Linaro GCC 7.5.0)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Step 1 - Runner & Disk Preflight
+        run: |
+          set -euo pipefail
+          uname -a
+          df -h
+          free -h
+          AVAIL_KB=$(df -Pk . | awk 'NR==2 {print $4}')
+          if [ "$AVAIL_KB" -lt 6291456 ]; then
+            echo "FATAL: Runner has less than 6 GiB free disk space ($AVAIL_KB KiB)!"
+            exit 1
+          fi
+
+      - name: Step 2 - Checkout CI Staging Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Step 3 - Fetch Open-Source Upstream Trees & Apply Verified Patches
+        run: |
+          set -euo pipefail
+          if [ ! -d "kernel/amlogic/linux-4.9-pie/.git" ]; then
+            git clone --depth 50 -b lineage-19.1 https://github.com/LineageOS/android_kernel_amlogic_linux-4.9-pie.git kernel/amlogic/linux-4.9-pie
+            git -C kernel/amlogic/linux-4.9-pie checkout ffb8d9d4
+            git -C kernel/amlogic/linux-4.9-pie am "$GITHUB_WORKSPACE"/build/ci-staging/patches/kernel/*.patch
+          fi
+          if [ ! -d "hardware/amlogic/kernel-modules/mali-driver/.git" ]; then
+            git clone --depth 20 -b lineage-19.1 https://github.com/LineageOS/android_hardware_amlogic_kernel-modules_mali-driver.git hardware/amlogic/kernel-modules/mali-driver
+            git -C hardware/amlogic/kernel-modules/mali-driver checkout e436241
+            git -C hardware/amlogic/kernel-modules/mali-driver am "$GITHUB_WORKSPACE"/build/ci-staging/patches/mali/*.patch
+          fi
+          if [ ! -d "hardware/amlogic/kernel-modules/qca9377/.git" ]; then
+            git clone --depth 20 -b lineage-19.1 https://github.com/G12-Development/android_hardware_amlogic_kernel-modules_qca9377.git hardware/amlogic/kernel-modules/qca9377
+            git -C hardware/amlogic/kernel-modules/qca9377 checkout 6d051c6
+            git -C hardware/amlogic/kernel-modules/qca9377 am "$GITHUB_WORKSPACE"/build/ci-staging/patches/qca9377/*.patch
+          fi
+
+      - name: Step 4 - Install Host Build Tools & Linaro GCC 7.5.0-2019.12 (x86_64 -> aarch64)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison flex libssl-dev libelf-dev make gcc g++ libc6-dev \
+            device-tree-compiler kmod cpio python3 file xz-utils wget ca-certificates
+          mkdir -p "$HOME/toolchains"
+          LINARO_URL="https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/aarch64-linux-gnu/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.tar.xz"
+          wget -q "$LINARO_URL" -O "$HOME/toolchains/linaro-7.5.tar.xz"
+          wget -q "${LINARO_URL}.asc" -O "$HOME/toolchains/linaro-7.5.tar.xz.asc"
+          echo "Official Linaro MD5 (.asc):"
+          cat "$HOME/toolchains/linaro-7.5.tar.xz.asc"
+          ACTUAL_MD5=$(md5sum "$HOME/toolchains/linaro-7.5.tar.xz" | awk '{print $1}')
+          grep -q "$ACTUAL_MD5" "$HOME/toolchains/linaro-7.5.tar.xz.asc"
+          echo "PASS: Linaro GCC 7.5.0-2019.12 MD5 verified ($ACTUAL_MD5)"
+          tar -xf "$HOME/toolchains/linaro-7.5.tar.xz" -C "$HOME/toolchains"
+          TC_BIN="$HOME/toolchains/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu/bin"
+          file "$TC_BIN/aarch64-linux-gnu-gcc" | grep "ELF 64-bit LSB executable, x86-64"
+          echo "$TC_BIN" >> "$GITHUB_PATH"
+
+      - name: Steps 5 to 14 - Run Full Kernel, Mali & QCA9377 Build & Verification Script
+        run: |
+          chmod +x build/scripts/linux_kernel_module_build.sh
+          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- ./build/scripts/linux_kernel_module_build.sh
+
+      - name: Upload Verified Kernel, Modules & Logs Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beelink-gt1-linux-4.9-arm64-output
+          path: |
+            out/linux-kernel-build/artifacts/Image.gz
+            out/linux-kernel-build/artifacts/gt1_v30_2g.dtb
+            out/linux-kernel-build/artifacts/mali.ko
+            out/linux-kernel-build/artifacts/qca9377.ko
+            out/linux-kernel-build/artifacts/Module.symvers
+            out/linux-kernel-build/artifacts/kernel.config
+            out/linux-kernel-build/artifacts/SHA256SUMS.txt
+            out/linux-kernel-build/logs/*.log
+          retention-days: 30

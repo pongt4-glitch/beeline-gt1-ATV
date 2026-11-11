@@ -1,0 +1,15 @@
+out/
+device_dump/
+backup/
+backups/
+stock-analysis/
+vendor/
+*.img
+*.bin
+*.so
+*.ko
+*.pem
+*.pk8
+*.key
+*.tar.gz
+.DS_Store

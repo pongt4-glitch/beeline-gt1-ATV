@@ -1,0 +1,29 @@
+## Proprietary blobs extracted from Beelink GT1 Classic (GT-T_V30_20160831)
+## Build: Amlogic/ampere/ampere:9/PI/20190625:userdebug/release-keys
+## Note: 32-bit stock kernel modules (mali.ko, wlan_9377.ko) are intentionally excluded
+## because LineageOS 19.1 builds 64-bit (ELF64 arm64) mali.ko and qca9377.ko from source.
+
+# Bluetooth (Qualcomm QCA9377 Rome UART on /dev/ttyS1, Reset GPIOX_17)
+vendor/etc/bluetooth/bt_vendor.conf|76f2d4d9a7d3b1fc8f4e87eae0248e040510eadc
+vendor/etc/bluetooth/qca9377/ar3k/nvm_tlv_tf_1.1.bin|a1348d8605d7b4805cc6e139e9bc3a1657d98dcf
+vendor/etc/bluetooth/qca9377/ar3k/rampatch_tlv_tf_1.1.tlv|2dbe33b217d6b61a50a400ad21ab1ec8341d4772
+vendor/lib/libbt-vendor.so|69128448e86e50608e5abfce266a38b153c888eb
+
+# Wi-Fi Userspace HAL & Firmware (Qualcomm QCA9377 SDIO 0271:0701 on sdio@d0070000)
+vendor/etc/wifi/qca9377/bdwlan30.bin|d8728ffff8f23d4e5a40b1305c7504b1376b5805
+vendor/etc/wifi/qca9377/otp30.bin|016f0d1021ef29b87b863c4e12128193798819a9
+vendor/etc/wifi/qca9377/qwlan30.bin|d0468a7eedc3fc7e558be0e8ee8a6d49743a4494
+vendor/etc/wifi/qca9377/utf30.bin|4311f8fd07219412ea2018de7d08e4a489b34868
+vendor/etc/wifi/qca9377/wlan/cfg.dat|3f46865ac1ed9f1d064183640fc9963fdf561d20
+vendor/etc/wifi/qca9377/wlan/qcom_cfg.ini|9d62ae18aca8a5501e8015ef004a1cd8c125c504
+vendor/etc/wifi/qca9377/wlan/qcom_wlan_nv.bin|b6a263a5d87e318aabc2dcfd919fa9b5013f16f8
+vendor/lib/libwifi-hal-common-ext.so|ec349c1510c057040e69cca060cd314ee20b4778
+
+# Graphics & Display Userspace Blobs (Mali-T820MP3 Midgard r28p0-01rel0 — SHA-1 matches gx-common/proprietary-files-gxm.txt)
+vendor/lib/egl/libGLES_mali.so|17b51f8c4b26993e4967bcf730a7e0402bccff79
+vendor/lib/hw/gralloc.amlogic.so|f8325eefc16f1e55f8496300276f89ca132c2435
+vendor/lib/hw/hwcomposer.amlogic.so|2cc84c1aa1e45bf5a53960bc1deb3d3d27a54887
+
+# System Control Picture Quality (Extracted from Beelink GT1 Classic)
+vendor/etc/tvconfig/pq/pq.db|e005104e8872cb5a6cb427973e26d31dec14c616
+vendor/etc/tvconfig/pq/pq_default.ini|e090d5abab80ddb7da08206e9d82a077b4812aa5

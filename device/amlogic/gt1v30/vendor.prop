@@ -1,0 +1,20 @@
+#
+# Copyright (C) 2022-2023 The LineageOS Project
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+## Audio & HDMI
+ro.vendor.platform.has.realoutputmode=true
+persist.vendor.sys.cec.device_type=4
+
+## Bluetooth (Qualcomm QCA9377 Rome UART on /dev/ttyS1)
+qcom.bluetooth.soc=rome_uart
+ro.bluetooth.hfp.ver=1.6
+
+## Graphics (Mali-T820MP3 OpenGL ES 3.2)
+ro.opengles.version=196610
+
+## Wi-Fi (Qualcomm QCA9377 SDIO)
+wifi.interface=wlan0
+wifi.direct.interface=p2p0

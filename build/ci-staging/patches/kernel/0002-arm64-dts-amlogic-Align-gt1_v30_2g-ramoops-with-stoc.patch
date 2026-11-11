@@ -1,0 +1,44 @@
+From 74dd0b7d424bb929ed2f7e95c18266a346fc00c1 Mon Sep 17 00:00:00 2001
+From: Pong <pong@MacBook-Air-khxng-Pong.local>
+Date: Wed, 11 Nov 2026 18:55:36 +0700
+Subject: [PATCH 2/3] arm64: dts: amlogic: Align gt1_v30_2g ramoops with stock
+ DTB and enable -@ symbols (AUD-07)
+
+---
+ arch/arm64/boot/dts/amlogic/Makefile       | 1 +
+ arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts | 7 +++----
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/amlogic/Makefile b/arch/arm64/boot/dts/amlogic/Makefile
+index e0ebf40a..d7473b1b 100644
+--- a/arch/arm64/boot/dts/amlogic/Makefile
++++ b/arch/arm64/boot/dts/amlogic/Makefile
+@@ -85,6 +85,7 @@ dtb-y += gxm_q201_1g.dtb
+ dtb-y += gxm_q201_2g.dtb
+ dtb-y += gxm_skt.dtb
+ dtb-y += gt1_v30_2g.dtb
++DTC_FLAGS_gt1_v30_2g := -@
+ dtb-y += hertz_3g.dtb
+ dtb-y += kvim3.dtb
+ dtb-y += kvim.dtb
+diff --git a/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts b/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts
+index de72dd12..5ed50f25 100644
+--- a/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts
++++ b/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts
+@@ -65,10 +65,9 @@
+ 		ramoops@0x07400000 {
+ 			compatible = "ramoops";
+ 			reg = <0x0 0x07400000 0x0 0x00100000>;
+-			record-size = <0x20000>;
+-			console-size = <0x40000>;
+-			ftrace-size = <0x80000>;
+-			pmsg-size = <0x20000>;
++			record-size = <0x8000>;
++			console-size = <0x8000>;
++			ftrace-size = <0x40000>;
+ 		};
+ 
+ 		secmon_reserved: linux,secmon {
+-- 
+2.54.0 (Apple Git-157)
+

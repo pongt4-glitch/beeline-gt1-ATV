@@ -1,0 +1,45 @@
+From 1cd9d4344ed2859af40aa1a03a5904b5c0258968 Mon Sep 17 00:00:00 2001
+From: Pong <pong@MacBook-Air-khxng-Pong.local>
+Date: Wed, 11 Nov 2026 19:09:52 +0700
+Subject: [PATCH] qca9377: Default KERNEL_ARCH to TARGET_KERNEL_ARCH and remove
+ undefined PREFIX_CROSS_COMPILE
+
+---
+ Android.mk | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/Android.mk b/Android.mk
+index 0c28bf8..cc6af3b 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -17,6 +17,7 @@
+ LOCAL_PATH := $(call my-dir)
+ 
+ ifeq ($(TARGET_PREBUILT_KERNEL),)
++KERNEL_ARCH ?= $(TARGET_KERNEL_ARCH)
+ QCA9377_PATH    := $(abspath $(call my-dir))
+ QCA_DRIVER_PATH := AIO/drivers/qcacld-new
+ 
+@@ -30,15 +31,15 @@ LOCAL_MODULE_PATH   := $(TARGET_OUT_VENDOR)/lib/modules
+ _qca9377_intermediates := $(call intermediates-dir-for,$(LOCAL_MODULE_CLASS),$(LOCAL_MODULE))
+ _qca9377_ko := $(_qca9377_intermediates)/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
+ KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
+-QCA9377_CONFIGS :=WLAN_ROOT=$(abspath $(_qca9377_intermediates))/$(QCA_DRIVER_PATH) MODNAME=wlan CONFIG_QCA_WIFI_ISOC=0 CONFIG_QCA_WIFI_2_0=1 CONFIG_QCA_CLD_WLAN=m WLAN_OPEN_SOURCE=1 CONFIG_CLD_HL_SDIO_CORE=y CONFIG_LINUX_QCMBR=y CONFIG_NON_QC_PLATFORM=y
++QCA9377_CONFIGS := WLAN_ROOT=$(abspath $(_qca9377_intermediates))/$(QCA_DRIVER_PATH) MODNAME=wlan CONFIG_QCA_WIFI_ISOC=0 CONFIG_QCA_WIFI_2_0=1 CONFIG_QCA_CLD_WLAN=m WLAN_OPEN_SOURCE=1 CONFIG_CLD_HL_SDIO_CORE=y CONFIG_LINUX_QCMBR=y CONFIG_NON_QC_PLATFORM=y
+ 
+ $(_qca9377_ko): $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
+ 	@mkdir -p $(dir $@)
+ 	@cp -R $(QCA9377_PATH)/* $(_qca9377_intermediates)/
+-	$(hide) +$(KERNEL_MAKE_CMD) $(PATH_OVERRIDE) $(KERNEL_MAKE_FLAGS) -C $(KERNEL_OUT) M=$(abspath $(_qca9377_intermediates))/$(QCA_DRIVER_PATH) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) $(KERNEL_CROSS_COMPILE)  modules $(QCA9377_CONFIGS)
++	$(hide) +$(KERNEL_MAKE_CMD) $(PATH_OVERRIDE) $(KERNEL_MAKE_FLAGS) -C $(KERNEL_OUT) M=$(abspath $(_qca9377_intermediates))/$(QCA_DRIVER_PATH) ARCH=$(TARGET_KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) modules $(QCA9377_CONFIGS)
+ 	$(KERNEL_TOOLCHAIN_PATH)strip --strip-unneeded $(dir $@)/$(QCA_DRIVER_PATH)/wlan.ko; \
+ 	cp $(dir $@)/$(QCA_DRIVER_PATH)/wlan.ko $@;
+ 
+ include $(BUILD_SYSTEM)/base_rules.mk
+ 
+-endif
+\ No newline at end of file
++endif
+-- 
+2.54.0 (Apple Git-157)
+
