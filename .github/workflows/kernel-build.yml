@@ -34,6 +34,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "GT1 CI Builder"
+          git config --global user.email "gt1-ci@users.noreply.github.com"
+
       - name: Step 3 - Fetch Open-Source Upstream Trees & Apply Verified Patches
         run: |
           set -euo pipefail
