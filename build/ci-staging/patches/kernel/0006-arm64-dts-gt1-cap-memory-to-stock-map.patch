@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GT1 Kernel Safety <gt1-kernel@localhost>
+Date: Thu, 12 Nov 2026 17:05:00 +0700
+Subject: [PATCH] arm64: dts: gt1: cap visible RAM to stock boot map
+
+GT1 stock runtime /proc/iomem reports RAM 0x00000000..0x77ffffff.
+Preserve the 64-bit memory cell encoding but do not expose the
+additional top 128 MiB or omit the first 1 MiB from usable RAM.
+
+---
+diff --git a/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts b/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts
+--- a/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts
++++ b/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts
+@@ -54,7 +54,7 @@
+ 
+ 	memory@00000000 {
+ 		device_type = "memory";
+-		linux,usable-memory = <0x0 0x00100000 0x0 0x7ff00000>;
++		linux,usable-memory = <0x0 0x00000000 0x0 0x78000000>;
+ 	};
+ 
+ 	reserved-memory {
+
+-- 
+2.39.0

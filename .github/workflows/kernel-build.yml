@@ -595,6 +595,21 @@ jobs:
           fi
           echo "PASS: QCA9377 no longer takes an unaligned MSDU ID pointer"
 
+      - name: Verify GT1 DTB memory map matches captured stock RAM
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, "build/scripts")
+          from gt1_dtb_boot_audit import parse, reg_intervals
+          tree, _ = parse("out/linux-kernel-build/artifacts/gt1_v30_2g.dtb")
+          memory = reg_intervals(tree, "/memory@00000000", "linux,usable-memory")
+          if memory != [[0, 0x78000000]]:
+              raise SystemExit(f"Unexpected GT1 memory range: {memory}")
+          print("PASS: DTB system RAM matches observed stock 0x00000000..0x77ffffff")
+          PY
+
       - name: Upload Verified Kernel, Modules & Logs Artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -30,6 +30,13 @@ Date: 2026-11-12. Mode: read-only evidence collection; **NO flash, eMMC write or
 - **Unresolved memory geometry:** Bootloader-populated live stock tree has `/memory/reg=<0x0 0x78000000>` (RAM visible: 1,920 MiB). Candidate has `/memory@00000000/linux,usable-memory=<0x0 0x00100000 0x0 0x7ff00000>` (start 1 MiB, length 2,047 MiB). Candidate therefore describes a different memory range, extending to `0x80000000` instead of `0x78000000`. Memory-map/secure-reservation compatibility remains **UNCONFIRMED**.
 - Linux 4.9 `drivers/of/fdt.c:early_init_dt_scan_memory` explicitly reads `linux,usable-memory` before `reg`. Presence of this property is supported by the kernel, but the **range choice** still requires validation.
 
+## Priority 3 candidate memory cap (source-only; runtime unverified)
+
+- Read-only ADB on the real stock GT1u (Android 9, GXM, `gxm_q201_2g`) confirmed `/proc/device-tree/memory/reg=<0 0x78000000>` and `/proc/iomem` system RAM `0x00000000..0x77ffffff`. No MAC, serial number, device credentials or bootargs were included in this report.
+- Branch `fix/gt1-stock-memory-cap` adds incremental Kernel Patch `0006-arm64-dts-gt1-cap-memory-to-stock-map.patch` and updates `device/amlogic/gt1v30/dts/gt1_v30_2g.dts` to `linux,usable-memory=<0 0 0 0x78000000>` using the existing 64-bit cell layout.
+- Patches `0001` to `0006` applied cleanly with `git am` to pinned `ffb8d9d4` in a disposable local clone; the resulting Kernel DTS and device DTS agreed. CI will verify the compiled DTB via a new memory-range gate.
+- This cap prevents the new DTB from describing the extra top 128 MiB of RAM outside the stock kernel's observed system RAM. It does **not** validate U-Boot's memory-node injection, overlap merging, secure monitor reservations or a successful boot. Keep the hardware boot gate blocked until device-side consent and serial capture.
+
 ## Stock Android boot image inspection
 - `device_dump/partitions/boot.img` contains `ANDROID!` and Android boot header **v1**, page size **2,048**.
 - `kernel_addr=0x01080000`, `ramdisk_addr=0x01000000`, `second_addr=0x00f00000`, `tags_addr=0x00000100`.
@@ -39,7 +46,7 @@ Date: 2026-11-12. Mode: read-only evidence collection; **NO flash, eMMC write or
 - The local workspace does **not** contain full LineageOS/AOSP source directories such as `build/envsetup.sh`, `frameworks/base` or `system/core`. The device tree, vendor extraction, Kernel and CI staging components alone cannot currently build a complete Android 12L system image. **No Android 12L image was built.**
 
 ## Decisions before a real boot test
-1. Resolve DTB memory-range difference using stock memory layout, bootloader memory map and kernel reservations. Do **not** edit memory cells speculatively.
+1. Verify the proposed stock-capped DTB against the memory node U-Boot injects during an authorized test boot. The source cap is grounded in read-only ADB evidence, but its effective runtime behavior remains unconfirmed.
 2. Assemble a complete LineageOS 19.1 userspace build environment, validate proprietary vendor blobs against Android 12L API/HAL requirements, fstab/SELinux, AVB and partition constraints.
 3. Determine whether *non-destructive* boot from external media is actually supported by this exact U-Boot version. Do not assume `fastboot boot`, SD boot, or a recoverable USB path works.
 4. Prepare offline boot image/header tests, serial console capture and a rollback procedure with verified stock partitions; keep the recovery path outside the device when possible.
