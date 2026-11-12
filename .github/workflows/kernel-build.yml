@@ -102,6 +102,44 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix Amlogic CMA stats and trace buffer bounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          root = Path("kernel/amlogic/linux-4.9-pie")
+
+          # Correct zone statistic access in vmscan.
+          p = root / "mm/vmscan.c"
+          s = p.read_text()
+          old = "node_page_state(pgdat, NR_CMA_ISOLATED)"
+          new = "sum_zone_node_page_state(pgdat->node_id, NR_CMA_ISOLATED)"
+          assert s.count(old) == 2
+          p.write_text(s.replace(old, new))
+
+          # Preserve clearing the rest of trace_iterator.
+          p = root / "kernel/trace/trace.c"
+          s = p.read_text()
+          old = (
+              "\t\tmemset(&iter.seq, 0,\n"
+              "\t\t       sizeof(struct trace_iterator) -\n"
+              "\t\t       offsetof(struct trace_iterator, seq));"
+          )
+          new = (
+              "\t\tmemset((char *)&iter + "
+              "offsetof(struct trace_iterator, seq), 0,\n"
+              "\t\t       sizeof(iter) - "
+              "offsetof(struct trace_iterator, seq));"
+          )
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new))
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
