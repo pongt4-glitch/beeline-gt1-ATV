@@ -99,8 +99,6 @@ echo "=== [STEP 7 & STEP 8] Full Kernel Compilation & Link vmlinux ===" | tee "$
 make -C "${KERNEL_SRC}" O="${KERNEL_OUT}" \
   ARCH=arm64 CROSS_COMPILE="${CROSS_COMPILE}" \
   HOSTCC="${HOSTCC_BIN}" HOSTCFLAGS="-O2 -fcommon" \
-  CONFIG_DEBUG_SECTION_MISMATCH=y \
-  CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
   -j"${JOBS}" vmlinux modules 2>&1 | tee -a "${LOG_DIR}/07_08_kernel_vmlinux.log"
 test -f "${KERNEL_OUT}/vmlinux"
 test -f "${KERNEL_OUT}/Module.symvers"

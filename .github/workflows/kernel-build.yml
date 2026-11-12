@@ -473,6 +473,64 @@ jobs:
           git -C hardware/amlogic/kernel-modules/qca9377 diff --check
           git -C hardware/amlogic/kernel-modules/qca9377 diff --stat
 
+      - name: Fix Amlogic init section lifetimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+          import re
+
+          root = Path("kernel/amlogic/linux-4.9-pie/drivers/amlogic")
+
+          # DDR port descriptors can be referenced by later probes.
+          p = root / "ddr_tool/ddr_port_desc.c"
+          s = p.read_text()
+          s, n = re.subn(
+              r"(static struct ddr_port_desc ddr_port_desc_\w+\[\]) __initdata",
+              r"\1", s
+          )
+          assert n == 14, f"Expected 14 DDR tables, found {n}"
+          old = "int __init ddr_find_port_desc("
+          assert s.count(old) == 1
+          s = s.replace(old, "int ddr_find_port_desc(", 1)
+          p.write_text(s)
+
+          # Boot parameters are read from a reusable probe.
+          p = root / "ddr_tool/dmc_monitor.c"
+          s = p.read_text()
+          for name in ("init_dev_mask", "init_start_addr", "init_end_addr"):
+              pattern = (
+                  rf"(?m)^static unsigned long {name}\s+__initdata;$"
+              )
+              s, n = re.subn(
+                  pattern, f"static unsigned long {name};", s
+              )
+              assert n == 1, f"Missing {name}"
+          p.write_text(s)
+
+          # platform_driver_probe supplies and clears this callback.
+          p = root / "memory_ext/watch_point.c"
+          s = p.read_text()
+          old = "\t.probe = aml_watch_point_probe,\n"
+          assert s.count(old) == 1
+          s = s.replace(old, "", 1)
+          p.write_text(s)
+
+          # PM probe remains referenced by its registered driver.
+          p = root / "pm/gx_pm.c"
+          s = p.read_text()
+          old = "static int __init meson_pm_probe("
+          assert s.count(old) == 1
+          s = s.replace(old, "static int meson_pm_probe(", 1)
+          p.write_text(s)
+
+          print("Amlogic init section patches applied")
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
