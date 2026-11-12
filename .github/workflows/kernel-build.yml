@@ -573,7 +573,17 @@ jobs:
       - name: Steps 5 to 14 - Run Full Kernel, Mali & QCA9377 Build & Verification Script
         run: |
           chmod +x build/scripts/linux_kernel_module_build.sh
-          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-attribute-alias -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow" ./build/scripts/linux_kernel_module_build.sh
+          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-attribute-alias -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned -Wno-error=missing-attributes" ./build/scripts/linux_kernel_module_build.sh
+
+      - name: Enforce zero string operation compiler warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'warning:.*\[-Wstringop-(truncation|overflow)(=[^]]*)?\]' out/linux-kernel-build/logs/*.log; then
+            echo "FATAL: string operation warnings remain after Priority 1 patches" >&2
+            exit 1
+          fi
+          echo "PASS: no stringop-truncation or stringop-overflow warnings"
 
       - name: Upload Verified Kernel, Modules & Logs Artifacts
         if: always()
