@@ -381,6 +381,59 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix QCA9377 unreachable switch initialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          p = Path(
+              "hardware/amlogic/kernel-modules/qca9377/"
+              "AIO/drivers/qcacld-new/CORE/SAP/src/sapChSelect.c"
+          )
+          s = p.read_text()
+
+          old = (
+              "                        case eHT_CHANNEL_WIDTH_40MHZ: //HT40\n"
+              "                            switch( secondaryChannelOffset)\n"
+              "                            {\n"
+              "                                tSapSpectChInfo *pExtSpectCh = NULL;"
+          )
+          new = (
+              "                        case eHT_CHANNEL_WIDTH_40MHZ: //HT40\n"
+              "                        {\n"
+              "                            tSapSpectChInfo *pExtSpectCh = NULL;\n"
+              "                            switch( secondaryChannelOffset)\n"
+              "                            {"
+          )
+
+          end_old = (
+              "                                break;\n"
+              "                            }\n"
+              "                        break;\n"
+              "                        case eHT_CHANNEL_WIDTH_80MHZ: // VHT80"
+          )
+          end_new = (
+              "                                break;\n"
+              "                            }\n"
+              "                        }\n"
+              "                        break;\n"
+              "                        case eHT_CHANNEL_WIDTH_80MHZ: // VHT80"
+          )
+
+          assert s.count(old) == 1
+          assert s.count(end_old) == 1
+
+          s = s.replace(old, new).replace(end_old, end_new)
+          p.write_text(s)
+
+          print("QCA9377 switch initialization fixed")
+          PY_PATCH
+
+          git -C hardware/amlogic/kernel-modules/qca9377 diff --check
+          git -C hardware/amlogic/kernel-modules/qca9377 diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
