@@ -349,6 +349,38 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix DWC OTG uninitialized transfer size
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          p = Path(
+              "kernel/amlogic/linux-4.9-pie/"
+              "drivers/amlogic/usb/dwc_otg/310/dwc_otg_pcd_intr.c"
+          )
+          s = p.read_text()
+
+          old = (
+              "deptsiz_data_t deptsiz;\n"
+              "\tdev_dma_desc_sts_t desc_sts;"
+          )
+          new = (
+              "deptsiz_data_t deptsiz = { .d32 = 0 };\n"
+              "\tdev_dma_desc_sts_t desc_sts;"
+          )
+
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+          p.write_text(s)
+
+          print("DWC OTG transfer size initialized")
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
