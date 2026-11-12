@@ -254,6 +254,31 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix kernfs symlink path copy for GCC 9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          p = Path("kernel/amlogic/linux-4.9-pie/fs/kernfs/symlink.c")
+          s = p.read_text()
+
+          old = "strncpy(s + len, kn->name, slen);"
+          new = "memcpy(s + len, kn->name, slen);"
+
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+
+          inc = "#include <linux/namei.h>\n"
+          assert s.count(inc) == 1
+          s = s.replace(inc, inc + "#include <linux/string.h>\n", 1)
+
+          p.write_text(s)
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
