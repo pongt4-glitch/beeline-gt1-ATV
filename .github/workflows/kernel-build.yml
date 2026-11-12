@@ -391,7 +391,7 @@ jobs:
       - name: Steps 5 to 14 - Run Full Kernel, Mali & QCA9377 Build & Verification Script
         run: |
           chmod +x build/scripts/linux_kernel_module_build.sh
-          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-attribute-alias -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned -Wno-error=missing-attributes" ./build/scripts/linux_kernel_module_build.sh
+          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-attribute-alias -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow" ./build/scripts/linux_kernel_module_build.sh
 
       - name: Upload Verified Kernel, Modules & Logs Artifacts
         if: always()
