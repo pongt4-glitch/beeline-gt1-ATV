@@ -279,6 +279,44 @@ jobs:
 
           git -C kernel/amlogic/linux-4.9-pie diff --check
 
+      - name: Fix Amlogic eFuse keyname copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          p = Path("kernel/amlogic/linux-4.9-pie/drivers/amlogic/efuse/efuse64.c")
+          s = p.read_text()
+
+          old = (
+              "\t\tsize = sizeof(efusekey_infos[index].keyname) - 1;\n"
+              "\t\tstrncpy(efusekey_infos[index].keyname, uname,\n"
+              "\t\t\tstrlen(uname) > size ? size:strlen(uname));"
+          )
+          new = (
+              "\t\tstrlcpy(efusekey_infos[index].keyname, uname,\n"
+              "\t\t\tsizeof(efusekey_infos[index].keyname));"
+          )
+
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+
+          decl = "\tint size;\n"
+          assert s.count(decl) == 1
+          s = s.replace(decl, "", 1)
+
+          inc = "#include <linux/slab.h>\n"
+          assert s.count(inc) == 1
+          s = s.replace(inc, inc + "#include <linux/string.h>\n", 1)
+
+          p.write_text(s)
+          print("eFuse keyname patch applied")
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
