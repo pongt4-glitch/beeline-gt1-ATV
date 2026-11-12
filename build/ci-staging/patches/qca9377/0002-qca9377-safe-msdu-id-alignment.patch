@@ -1,0 +1,160 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GT1 Kernel Safety <gt1-kernel@localhost>
+Date: Thu, 12 Nov 2026 16:35:00 +0700
+Subject: [PATCH] fix(qca9377): access packed MSDU IDs without unaligned pointers
+
+Preserve the skb control-buffer ABI and LL headroom storage while
+using packed-aware lvalue accessors for the HL u16 descriptor ID.
+
+---
+diff --git a/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/adf/linux/adf_nbuf_pvt.h b/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/adf/linux/adf_nbuf_pvt.h
+--- a/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/adf/linux/adf_nbuf_pvt.h
++++ b/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/adf/linux/adf_nbuf_pvt.h
+@@ -228,8 +228,12 @@
+ #endif /* QCA_TX_HTT2_SUPPORT */
+ 
+ #ifdef CONFIG_HL_SUPPORT
+-#define NBUF_CB_ID(skb) \
+-    (&((struct cvg_nbuf_cb *)((skb)->cb))->tx_desc_id)
++/* Use packed-aware value accesses, never a potentially unaligned u16 *. */
++#define NBUF_CB_GET_ID(skb) \
++    (((struct cvg_nbuf_cb *)((skb)->cb))->tx_desc_id)
++#define NBUF_CB_SET_ID(skb, value) do { \
++    ((struct cvg_nbuf_cb *)((skb)->cb))->tx_desc_id = (value); \
++} while (0)
+ #endif
+ 
+ #define NBUF_SET_PACKET_STATE(skb, pkt_state) \
+diff --git a/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/ol_txrx_htt_api.h b/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/ol_txrx_htt_api.h
+--- a/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/ol_txrx_htt_api.h
++++ b/AIO/drivers/qcacld-new/CORE/SERVICES/COMMON/ol_txrx_htt_api.h
+@@ -38,13 +38,8 @@
+ 
+ #include <ol_txrx_api.h> /* ol_txrx_pdev_handle */
+ 
+-#ifdef CONFIG_HL_SUPPORT
+-static inline u_int16_t *
+-ol_tx_msdu_id_storage(adf_nbuf_t msdu)
+-{
+-    return NBUF_CB_ID(msdu);
+-}
+-#else
++#ifndef CONFIG_HL_SUPPORT
++/* The non-HL path stores the ID in an aligned skb headroom slot. */
+ static inline u_int16_t *
+ ol_tx_msdu_id_storage(adf_nbuf_t msdu)
+ {
+@@ -52,6 +47,33 @@
+     return (u_int16_t *) (((adf_os_size_t) (adf_nbuf_head(msdu) + 1)) & ~0x1);
+ }
+ #endif
++
++static inline u_int16_t
++ol_tx_msdu_id_load(adf_nbuf_t msdu)
++{
++#ifdef CONFIG_HL_SUPPORT
++    /* Direct packed-member load lets the compiler handle unaligned data. */
++    return NBUF_CB_GET_ID(msdu);
++#else
++    return *ol_tx_msdu_id_storage(msdu);
++#endif
++}
++
++static inline bool
++ol_tx_msdu_id_store(adf_nbuf_t msdu, u_int16_t value)
++{
++#ifdef CONFIG_HL_SUPPORT
++    NBUF_CB_SET_ID(msdu, value);
++    return true;
++#else
++    u_int16_t *storage = ol_tx_msdu_id_storage(msdu);
++
++    if (!storage)
++        return false;
++    *storage = value;
++    return true;
++#endif
++}
+ 
+ /**
+  * @brief Tx MSDU download completion for a LL system
+diff --git a/AIO/drivers/qcacld-new/CORE/CLD_TXRX/HTT/htt_tx.c b/AIO/drivers/qcacld-new/CORE/CLD_TXRX/HTT/htt_tx.c
+--- a/AIO/drivers/qcacld-new/CORE/CLD_TXRX/HTT/htt_tx.c
++++ b/AIO/drivers/qcacld-new/CORE/CLD_TXRX/HTT/htt_tx.c
+@@ -665,7 +665,6 @@
+     adf_nbuf_t head_msdu, int num_msdus)
+ {
+     adf_nbuf_t rejected = NULL;
+-    u_int16_t *msdu_id_storage;
+     u_int16_t msdu_id;
+     adf_nbuf_t msdu;
+     /*
+@@ -677,8 +676,7 @@
+     while (num_msdus--)
+     {
+          adf_nbuf_t next_msdu = adf_nbuf_next(msdu);
+-         msdu_id_storage = ol_tx_msdu_id_storage(msdu);
+-         msdu_id = *msdu_id_storage;
++         msdu_id = ol_tx_msdu_id_load(msdu);
+ 
+          /* htt_tx_send_base returns 0 as success and 1 as failure */
+          if (htt_tx_send_base(pdev, msdu, msdu_id, pdev->download_len,
+diff --git a/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_send.c b/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_send.c
+--- a/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_send.c
++++ b/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_send.c
+@@ -242,12 +242,11 @@
+     rejected = htt_tx_send_batch(pdev->htt_pdev, head_msdu, num_msdus);
+     while (adf_os_unlikely(rejected)) {
+         struct ol_tx_desc_t *tx_desc;
+-        u_int16_t *msdu_id_storage;
+         adf_nbuf_t next;
+ 
+         next = adf_nbuf_next(rejected);
+-        msdu_id_storage = ol_tx_msdu_id_storage(rejected);
+-        tx_desc = ol_tx_desc_find(pdev, *msdu_id_storage);
++        tx_desc = ol_tx_desc_find(pdev,
++                                  ol_tx_msdu_id_load(rejected));
+ 
+         OL_TX_TARGET_CREDIT_INCR(pdev, rejected);
+         ol_tx_desc_frame_free_nonstd(pdev, tx_desc, 1 /* had error */);
+diff --git a/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_sched.c b/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_sched.c
+--- a/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_sched.c
++++ b/AIO/drivers/qcacld-new/CORE/CLD_TXRX/TXRX/ol_tx_sched.c
+@@ -1314,8 +1314,6 @@
+     }
+ }
+ 
+-#define OL_TX_MSDU_ID_STORAGE_ERR(ptr) (NULL == ptr)
+-
+ void
+ ol_tx_sched_dispatch(
+   struct ol_txrx_pdev_t *pdev,
+@@ -1324,7 +1322,6 @@
+     adf_nbuf_t msdu, prev = NULL, head_msdu = NULL;
+     struct ol_tx_desc_t *tx_desc;
+ 
+-    u_int16_t *msdu_id_storage;
+     u_int16_t msdu_id;
+     int num_msdus = 0;
+     TX_SCHED_DEBUG_PRINT("Enter %s\n", __func__);
+@@ -1375,8 +1372,7 @@
+         //Store the MSDU Id for each MSDU
+         /* store MSDU ID */
+         msdu_id = ol_tx_desc_id(pdev, tx_desc);
+-        msdu_id_storage = ol_tx_msdu_id_storage(msdu);
+-        if (OL_TX_MSDU_ID_STORAGE_ERR(msdu_id_storage)) {
++        if (!ol_tx_msdu_id_store(msdu, msdu_id)) {
+             /*
+              * Send the prior frames as a batch, then send this as a single,
+              * then resume handling the remaining frames.
+@@ -1392,7 +1388,6 @@
+                 ol_tx_desc_frame_free_nonstd(pdev, tx_desc, 1 /* error */);
+             }
+         } else {
+-            *msdu_id_storage = msdu_id;
+             num_msdus++;
+         }
+         sctx->frms--;
+
+-- 
+2.39.0
