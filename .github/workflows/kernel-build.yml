@@ -217,6 +217,43 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix ext4 error function copy for GCC 9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+          import re
+
+          p = Path("kernel/amlogic/linux-4.9-pie/fs/ext4/super.c")
+          s = p.read_text()
+
+          pattern = re.compile(
+              r'(?m)^(?P<indent>[ \t]*)strncpy\('
+              r'(?P<dst>es->s_(?:last|first)_error_func), '
+              r'func,\s*sizeof\((?P=dst)\)\);'
+          )
+
+          matches = list(pattern.finditer(s))
+          assert len(matches) == 2, len(matches)
+
+          def fix(m):
+              indent = m.group("indent")
+              dst = m.group("dst")
+              return (
+                  f"{indent}memset({dst}, 0, sizeof({dst}));\n"
+                  f"{indent}memcpy({dst}, func,\n"
+                  f"{indent}       strnlen(func, sizeof({dst})));"
+              )
+
+          s = pattern.sub(fix, s)
+          p.write_text(s)
+          print("Patched both ext4 error-function fields")
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
