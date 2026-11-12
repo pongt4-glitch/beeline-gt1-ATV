@@ -1,0 +1,182 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GT1 Kernel Safety <gt1-kernel@localhost>
+Date: Thu, 12 Nov 2026 15:20:00 +0700
+Subject: [PATCH] fix(kernel): harden string operations, batch 1
+
+Bound HDMI/CVBS paths and preserve fixed-width SPD/SCSI bytes.
+Avoid silently overflowing the 32-byte HDMI mode buffers.
+
+---
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -262,7 +262,7 @@
+ 		if (strlen(ops->kind) > (IFNAMSIZ - 3))
+ 			goto failed;
+ 		strlcpy(name, ops->kind, IFNAMSIZ);
+-		strncat(name, "%d", 2);
++		strlcat(name, "%d", sizeof(name));
+ 	}
+ 
+ 	ASSERT_RTNL();
+diff --git a/lib/kobject.c b/lib/kobject.c
+--- a/lib/kobject.c
++++ b/lib/kobject.c
+@@ -127,7 +127,7 @@
+ 		int cur = strlen(kobject_name(parent));
+ 		/* back up enough to print this name with '/' */
+ 		length -= cur;
+-		strncpy(path + length, kobject_name(parent), cur);
++		memcpy(path + length, kobject_name(parent), cur);
+ 		*(path + --length) = '/';
+ 	}
+ 
+diff --git a/drivers/scsi/scsi_devinfo.c b/drivers/scsi/scsi_devinfo.c
+--- a/drivers/scsi/scsi_devinfo.c
++++ b/drivers/scsi/scsi_devinfo.c
+@@ -298,7 +298,7 @@
+ 	size_t from_length;
+ 
+ 	from_length = strlen(from);
+-	strncpy(to, from, min(to_length, from_length));
++	memcpy(to, from, min(to_length, from_length));
+ 	if (from_length < to_length) {
+ 		if (compatible) {
+ 			/*
+@@ -309,7 +309,7 @@
+ 			/* 
+ 			 * space pad the string if it is short. 
+ 			 */
+-			strncpy(&to[from_length], spaces,
++			memcpy(&to[from_length], spaces,
+ 				to_length - from_length);
+ 		}
+ 	}
+diff --git a/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_video.c b/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_video.c
+--- a/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_video.c
++++ b/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_video.c
+@@ -1074,14 +1074,13 @@
+ 		return;
+ 	}
+ 	if (vend_data->vendor_name) {
+-		len = strlen(vend_data->vendor_name);
+-		strncpy(&SPD_DB[0], vend_data->vendor_name,
+-			(len > 8) ? 8 : len);
++		/* SPD_DB is a zero-padded binary InfoFrame, not a C string. */
++		len = strnlen(vend_data->vendor_name, 8);
++		memcpy(&SPD_DB[0], vend_data->vendor_name, len);
+ 	}
+ 	if (vend_data->product_desc) {
+-		len = strlen(vend_data->product_desc);
+-		strncpy(&SPD_DB[8], vend_data->product_desc,
+-			(len > 16) ? 16 : len);
++		len = strnlen(vend_data->product_desc, 16);
++		memcpy(&SPD_DB[8], vend_data->product_desc, len);
+ 	}
+ 	SPD_DB[24] = 0x1;
+ 	hdev->hwop.setpacket(HDMI_SOURCE_DESCRIPTION, SPD_DB, SPD_HB);
+diff --git a/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_main.c b/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_main.c
+--- a/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_main.c
++++ b/drivers/amlogic/media/vout/hdmitx/hdmi_tx_20/hdmi_tx_main.c
+@@ -562,8 +562,12 @@
+ 	 * So if node "attr" contains 420, need append 420 to mode.
+ 	 */
+ 	if (strstr(hdev->fmt_attr, "420")) {
+-		if (!strstr(mode, "420"))
+-			strncat(mode, "420", 3);
++		if (!strstr(mode, "420") &&
++		    strlcat((char *)mode, "420", sizeof(mode)) >=
++		    sizeof(mode)) {
++			pr_warn(SYS "HDMI mode name too long for 420 suffix\n");
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	para = hdmi_get_fmt_name(mode, hdev->fmt_attr);
+@@ -1549,8 +1553,12 @@
+ 	memset(mode, 0, sizeof(mode));
+ 	strncpy(mode, info->name, sizeof(mode) - 1);
+ 	if (strstr(hdev->fmt_attr, "420")) {
+-		if (strstr(mode, "420") == NULL)
+-			strncat(mode, "420", 3);
++		if (strstr(mode, "420") == NULL &&
++		    strlcat((char *)mode, "420", sizeof(mode)) >=
++		    sizeof(mode)) {
++			pr_warn(SYS "HDMI mode name too long for 420 suffix\n");
++			return;
++		}
+ 	}
+ 	hdev->para = hdmi_get_fmt_name(mode, hdev->fmt_attr);
+ }
+@@ -6230,7 +6238,7 @@
+ 	for (i = 0; cs[i] != NULL; i++) {
+ 		if (strstr(token, cs[i])) {
+ 			if (strlen(cs[i]) < sizeof(attr))
+-				strncpy(attr, cs[i], strlen(cs[i]));
++				memcpy(attr, cs[i], strlen(cs[i]));
+ 			strcat(attr, ",");
+ 			break;
+ 		}
+@@ -6240,7 +6248,7 @@
+ 			if (strlen(cd[i]) < sizeof(attr))
+ 				if (strlen(cd[i]) <
+ 					(sizeof(attr) - strlen(attr)))
+-					strncat(attr, cd[i], strlen(cd[i]));
++					strlcat(attr, cd[i], sizeof(attr));
+ 			strncpy(hdmitx_device.fmt_attr, attr,
+ 				sizeof(hdmitx_device.fmt_attr));
+ 			hdmitx_device.fmt_attr[15] = '\0';
+diff --git a/drivers/amlogic/media/vout/cvbs/cvbs_out.c b/drivers/amlogic/media/vout/cvbs/cvbs_out.c
+--- a/drivers/amlogic/media/vout/cvbs/cvbs_out.c
++++ b/drivers/amlogic/media/vout/cvbs/cvbs_out.c
+@@ -562,8 +562,7 @@
+ 		}
+ 	}
+ 	if (vinfo) {
+-		strncpy(vinfo->ext_name, mode,
+-			(strlen(mode) < 32) ? strlen(mode) : 31);
++		strlcpy(vinfo->ext_name, mode, sizeof(vinfo->ext_name));
+ 		cvbs_drv->vinfo = vinfo;
+ 	} else {
+ 		local_cvbs_mode = MODE_MAX;
+diff --git a/drivers/net/wireless/ath/ath10k/wmi.c b/drivers/net/wireless/ath/ath10k/wmi.c
+--- a/drivers/net/wireless/ath/ath10k/wmi.c
++++ b/drivers/net/wireless/ath/ath10k/wmi.c
+@@ -4271,7 +4271,7 @@
+ 							    rate_code[i],
+ 							    type);
+ 			snprintf(buff, sizeof(buff), "%8d ", tpc[j]);
+-			strncat(tpc_value, buff, strlen(buff));
++			strlcat(tpc_value, buff, sizeof(tpc_value));
+ 		}
+ 		tpc_stats->tpc_table[type].pream_idx[i] = pream_idx;
+ 		tpc_stats->tpc_table[type].rate_code[i] = rate_code[i];
+diff --git a/drivers/thermal/of-thermal.c b/drivers/thermal/of-thermal.c
+--- a/drivers/thermal/of-thermal.c
++++ b/drivers/thermal/of-thermal.c
+@@ -1042,7 +1042,8 @@
+ 
+ 	#ifdef CONFIG_AMLOGIC_TEMP_SENSOR
+ 		if (!of_property_read_string(child, "policy", &str))
+-			strncpy(tzp->governor_name, str, THERMAL_NAME_LENGTH);
++			strlcpy(tzp->governor_name, str,
++				sizeof(tzp->governor_name));
+ 	#endif
+ 
+ 		for (i = 0; i < tz->ntrips; i++)
+diff --git a/drivers/devfreq/devfreq.c b/drivers/devfreq/devfreq.c
+--- a/drivers/devfreq/devfreq.c
++++ b/drivers/devfreq/devfreq.c
+@@ -558,7 +558,8 @@
+ 	devfreq->dev.class = devfreq_class;
+ 	devfreq->dev.release = devfreq_dev_release;
+ 	devfreq->profile = profile;
+-	strncpy(devfreq->governor_name, governor_name, DEVFREQ_NAME_LEN);
++	strlcpy(devfreq->governor_name, governor_name,
++		 sizeof(devfreq->governor_name));
+ 	devfreq->previous_freq = profile->initial_freq;
+ 	devfreq->last_status.current_frequency = profile->initial_freq;
+ 	devfreq->data = data;
+
+-- 
+2.39.0
