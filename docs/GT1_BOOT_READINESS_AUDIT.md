@@ -34,7 +34,7 @@ Date: 2026-11-12. Mode: read-only evidence collection; **NO flash, eMMC write or
 
 - Read-only ADB on the real stock GT1u (Android 9, GXM, `gxm_q201_2g`) confirmed `/proc/device-tree/memory/reg=<0 0x78000000>` and `/proc/iomem` system RAM `0x00000000..0x77ffffff`. No MAC, serial number, device credentials or bootargs were included in this report.
 - Branch `fix/gt1-stock-memory-cap` adds incremental Kernel Patch `0006-arm64-dts-gt1-cap-memory-to-stock-map.patch` and updates `device/amlogic/gt1v30/dts/gt1_v30_2g.dts` to `linux,usable-memory=<0 0 0 0x78000000>` using the existing 64-bit cell layout.
-- Patches `0001` to `0006` applied cleanly with `git am` to pinned `ffb8d9d4` in a disposable local clone; the resulting Kernel DTS and device DTS agreed. CI will verify the compiled DTB via a new memory-range gate.
+- Patches `0001` to `0006` applied cleanly with `git am` to pinned `ffb8d9d4` in a disposable local clone; the resulting Kernel DTS and device DTS agreed. **Compiled-DTB CI memory-range gate PASSED** in GitHub Actions run `43196246098` (commit `5a4c037`). Six artifacts passed SHA-256; 260 warnings remain (161 packed-member, 83 packed-not-aligned, 16 missing-attributes), zero string warnings. The DTB differs from Priority 2 only in `/memory@00000000/linux,usable-memory`; Mali, QCA, Module.symvers and kernel config were byte-identical.
 - This cap prevents the new DTB from describing the extra top 128 MiB of RAM outside the stock kernel's observed system RAM. It does **not** validate U-Boot's memory-node injection, overlap merging, secure monitor reservations or a successful boot. Keep the hardware boot gate blocked until device-side consent and serial capture.
 
 ## Stock Android boot image inspection
