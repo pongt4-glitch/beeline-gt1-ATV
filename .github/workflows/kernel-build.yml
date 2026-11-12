@@ -58,64 +58,44 @@ jobs:
             git -C hardware/amlogic/kernel-modules/qca9377 am "$GITHUB_WORKSPACE"/build/ci-staging/patches/qca9377/*.patch
           fi
 
-      - name: Step 4 - Install Host Build Tools & Linaro GCC 7.5.0-2019.12 (x86_64 -> aarch64)
+      - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
+        shell: bash
         run: |
           set -euo pipefail
-          echo "=== 1. Fix Ubuntu APT Mirrors ==="
-          sudo sed -i 's~http://azure\.archive\.ubuntu\.com/ubuntu/~http://archive.ubuntu.com/ubuntu/~g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
-          sudo sed -i 's~https://azure\.archive\.ubuntu\.com/ubuntu/~https://archive.ubuntu.com/ubuntu/~g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
 
-          echo "=== 2. DNS Preflight for archive.ubuntu.com ==="
-          DNS_RESOLVED=false
-          for attempt in 1 2 3 4 5; do
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1; then
-              echo "PASS: DNS resolution for archive.ubuntu.com verified on attempt ${attempt}."
-              DNS_RESOLVED=true
+          echo "=== APT update ==="
+          updated=false
+          for attempt in 1 2 3; do
+            if sudo apt-get update               -o APT::Update::Error-Mode=any               -o Acquire::Retries=1               -o Acquire::http::Timeout=20; then
+              updated=true
               break
             fi
-            sleep 2
-          done
 
-          if [ "${DNS_RESOLVED}" = "false" ]; then
-            echo -e "nameserver 1.1.1.1\nnameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf >/dev/null
-          fi
-
-          echo "=== 3. APT Update with Bounded Retries ==="
-          APT_UPDATED=false
-          for attempt in 1 2 3 4; do
-            if sudo apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=20; then
-              APT_UPDATED=true
-              break
+            if [ "$attempt" -eq 1 ]; then
+              for src in /etc/apt/sources.list                          /etc/apt/apt-mirrors.txt                          /etc/apt/sources.list.d/*.list                          /etc/apt/sources.list.d/*.sources; do
+                [ -f "$src" ] || continue
+                sudo sed -i                   's#azure.archive.ubuntu.com#archive.ubuntu.com#g'                   "$src"
+              done
             fi
             sleep 5
           done
-          [ "${APT_UPDATED}" = "true" ] || exit 100
+          [ "$updated" = true ] || exit 100
 
-          echo "=== 4. Installing Host Build Tools ==="
-          sudo apt-get install -y --no-install-recommends \
-            bc bison flex libssl-dev libelf-dev make gcc g++ libc6-dev \
-            device-tree-compiler kmod cpio python3 file xz-utils wget ca-certificates tar gnupg
+          echo "=== Install build dependencies ==="
+          sudo apt-get install -y --no-install-recommends             bc bison flex libssl-dev libelf-dev make gcc g++             libc6-dev device-tree-compiler kmod cpio python3             file xz-utils ca-certificates             gcc-9-aarch64-linux-gnu binutils-aarch64-linux-gnu
 
-          echo "=== 5. Download & Verify Linaro GCC 7.5.0-2019.12 ==="
-          mkdir -p "$HOME/toolchains"
-          LINARO_URL="https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/aarch64-linux-gnu/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.tar.xz"
-          wget --retry-connrefused --waitretry=3 --tries=5 --timeout=30 --max-redirect=5 \
-            "$LINARO_URL" -O "$HOME/toolchains/linaro-7.5.tar.xz"
-          wget --retry-connrefused --waitretry=3 --tries=5 --timeout=30 --max-redirect=5 \
-            "${LINARO_URL}.asc" -O "$HOME/toolchains/linaro-7.5.tar.xz.asc" || true
+          echo "=== Verify cross compiler ==="
+          test -x /usr/bin/aarch64-linux-gnu-gcc-9
+          /usr/bin/aarch64-linux-gnu-gcc-9 --version
+          aarch64-linux-gnu-ld --version
+          aarch64-linux-gnu-objcopy --version
+          dpkg-query -W gcc-9-aarch64-linux-gnu             binutils-aarch64-linux-gnu
 
-          if [ -f "$HOME/toolchains/linaro-7.5.tar.xz.asc" ]; then
-            grep -q "BEGIN PGP SIGNATURE" "$HOME/toolchains/linaro-7.5.tar.xz.asc" && echo "PASS: Verified .asc is authentic detached PGP signature."
-          fi
-
-          xz -t "$HOME/toolchains/linaro-7.5.tar.xz"
-          echo "PASS: Archive integrity verified (xz stream OK)."
-
-          tar -xf "$HOME/toolchains/linaro-7.5.tar.xz" -C "$HOME/toolchains"
-          TC_BIN="$HOME/toolchains/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu/bin"
-          file "$TC_BIN/aarch64-linux-gnu-gcc" | grep "ELF 64-bit LSB executable, x86-64"
-          "$TC_BIN/aarch64-linux-gnu-gcc" --version | grep "7.5.0"
-          echo "$TC_BIN" >> "$GITHUB_PATH"
+          echo "=== Configure Kbuild compiler prefix ==="
+          mkdir -p "$RUNNER_TEMP/gt1-cross/bin"
+          printf '%s\n'             '#!/bin/sh'             'exec /usr/bin/aarch64-linux-gnu-gcc-9 "$@"'             > "$RUNNER_TEMP/gt1-cross/bin/aarch64-linux-gnu-gcc"
+          chmod 755             "$RUNNER_TEMP/gt1-cross/bin/aarch64-linux-gnu-gcc"
+          echo "$RUNNER_TEMP/gt1-cross/bin" >> "$GITHUB_PATH"
 
       - name: Steps 5 to 14 - Run Full Kernel, Mali & QCA9377 Build & Verification Script
         run: |
