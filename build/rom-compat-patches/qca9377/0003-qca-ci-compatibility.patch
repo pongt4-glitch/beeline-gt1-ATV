@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GT1 Kernel Safety <gt1-kernel@localhost>
+Date: Thu, 12 Nov 2026 10:00:00 +0700
+Subject: [PATCH] fix(qca9377): mirror CI SME and SAP compatibility
+
+Carry the tested inline CI source edits into full ROM builds.
+
+---
+diff --git a/AIO/drivers/qcacld-new/CORE/SAP/src/sapChSelect.c b/AIO/drivers/qcacld-new/CORE/SAP/src/sapChSelect.c
+index f5f00e1..900e298 100644
+--- a/AIO/drivers/qcacld-new/CORE/SAP/src/sapChSelect.c
++++ b/AIO/drivers/qcacld-new/CORE/SAP/src/sapChSelect.c
+@@ -1957,9 +1957,10 @@ void sapComputeSpectWeight( tSapChSelSpectInfo* pSpectInfoParams,
+                     switch(pSpectCh->channelWidth)
+                     {
+                         case eHT_CHANNEL_WIDTH_40MHZ: //HT40
++                        {
++                            tSapSpectChInfo *pExtSpectCh = NULL;
+                             switch( secondaryChannelOffset)
+                             {
+-                                tSapSpectChInfo *pExtSpectCh = NULL;
+                                 case PHY_DOUBLE_CHANNEL_LOW_PRIMARY: // Above the Primary Channel
+                                     pExtSpectCh = (pSpectCh + 1);
+                                     if( pExtSpectCh != NULL &&
+@@ -1995,6 +1996,7 @@ void sapComputeSpectWeight( tSapChSelSpectInfo* pSpectInfoParams,
+                                     }
+                                 break;
+                             }
++                        }
+                         break;
+                         case eHT_CHANNEL_WIDTH_80MHZ: // VHT80
+                             if((centerFreq - channel_id) == 6)
+diff --git a/AIO/drivers/qcacld-new/CORE/SME/src/sme_common/sme_Api.c b/AIO/drivers/qcacld-new/CORE/SME/src/sme_common/sme_Api.c
+index ab49570..ee9b96c 100644
+--- a/AIO/drivers/qcacld-new/CORE/SME/src/sme_common/sme_Api.c
++++ b/AIO/drivers/qcacld-new/CORE/SME/src/sme_common/sme_Api.c
+@@ -9769,7 +9769,6 @@ eHalStatus sme_WakeReasonIndCallback (tHalHandle hHal, void* pMsg)
+ eHalStatus sme_SetMaxTxPowerPerBand(eCsrBand band, v_S7_t dB,
+                   tHalHandle hal)
+ {
+-	vos_msg_t msg;
+ 	eHalStatus status;
+ 	tSmeCmd *set_max_tx_pwr_per_band;
+ 	tpAniSirGlobal mac_ctx = PMAC_STRUCT(hal);
+@@ -9784,9 +9783,6 @@ eHalStatus sme_SetMaxTxPowerPerBand(eCsrBand band, v_S7_t dB,
+ 		  FL("band : %d power %d dB"),
+ 		  band, dB);
+ 
+-	MTRACE(vos_trace(VOS_MODULE_ID_SME,
+-			TRACE_CODE_SME_TX_WDA_MSG, NO_SESSION, msg.type));
+-
+ 	status = sme_AcquireGlobalLock(&mac_ctx->sme);
+ 	if (HAL_STATUS_SUCCESS(status)) {
+ 		set_max_tx_pwr_per_band = csrGetCommandBuffer(mac_ctx);
+
+-- 
+2.39.0

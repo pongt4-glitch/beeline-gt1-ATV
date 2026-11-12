@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <!-- Remotes -->
+  <remote name="g12-dev"
+          fetch="https://github.com/G12-Development" />
+  <remote name="themuppets"
+          fetch="https://github.com/TheMuppets" />
+
+  <!-- Beelink GT1 Classic (GT-T_V30_20160831) Local Device & Vendor Trees -->
+  <!-- Overlaid into device/amlogic/gt1v30 and vendor/amlogic/gt1v30 post-sync by build_beelink_gt1.sh -->
+
+  <!-- Amlogic Common & GX-Common Device Trees (lineage-19.1 Verified Commits) -->
+  <project name="LineageOS/android_device_amlogic_common"
+           path="device/amlogic/common"
+           remote="github"
+           revision="c0bde920fd766903c078b2e76eaf7224d202fd93"
+           upstream="refs/heads/lineage-19.1" />
+
+  <project name="LineageOS/android_device_amlogic_gx-common"
+           path="device/amlogic/gx-common"
+           remote="github"
+           revision="0d9c41a92b42023fb937ca1528995a04a009e424"
+           upstream="refs/heads/lineage-19.1" />
+
+  <project name="LineageOS/android_device_amlogic_sepolicy"
+           path="device/amlogic/sepolicy"
+           remote="github"
+           revision="4d7032a605094e1da7e7e95c6cb5927f36584ce5"
+           upstream="refs/heads/lineage-19.1" />
+
+  <!-- Amlogic Linux 4.9.113 Kernel & External Out-of-Tree Modules (lineage-19.1) -->
+  <project name="LineageOS/android_kernel_amlogic_linux-4.9-pie"
+           path="kernel/amlogic/linux-4.9-pie"
+           remote="github"
+           revision="ffb8d9d46aac1cde5ee5a1495aa86b62e484ac77"
+           upstream="refs/heads/lineage-19.1" />
+
+  <project name="LineageOS/android_hardware_amlogic_kernel-modules_mali-driver"
+           path="hardware/amlogic/kernel-modules/mali-driver"
+           remote="github"
+           revision="e436241062014f098c12318033385bdc4e5a2fe8"
+           upstream="refs/heads/lineage-19.1" />
+
+  <project name="LineageOS/android_hardware_amlogic_kernel-modules_media-pie"
+           path="hardware/amlogic/kernel-modules/media-pie"
+           remote="github"
+           revision="0014f0de13d86f87cae03108b13852ce4e53bb62"
+           upstream="refs/heads/lineage-19.1" />
+
+  <project name="LineageOS/android_hardware_amlogic_kernel-modules_optee-pie"
+           path="hardware/amlogic/kernel-modules/optee-pie"
+           remote="github"
+           revision="47248fb86ac2fc5fc0c75589f132a5b73bb312ee"
+           upstream="refs/heads/lineage-19.1" />
+
+  <!-- Qualcomm QCA9377 SDIO Wi-Fi Kernel Module (qcacld-2.0 for Amlogic 4.9-pie) -->
+  <project name="android_hardware_amlogic_kernel-modules_qca9377"
+           path="hardware/amlogic/kernel-modules/qca9377"
+           remote="g12-dev"
+           revision="6d051c69d3b8acccc97abdbe0008c764a6901573"
+           upstream="refs/heads/lineage-19.1" />
+
+  <!-- Amlogic Proprietary Vendor Tree (contains gx-common/gx-common-vendor.mk at root/gx-common) -->
+  <project name="proprietary_vendor_amlogic"
+           path="vendor/amlogic"
+           remote="themuppets"
+           revision="439c00e0754af20d7c3425c5f36f7b84dab38b69"
+           upstream="refs/heads/lineage-19.1" />
+</manifest>

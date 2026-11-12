@@ -28,6 +28,21 @@ python3 build/scripts/gt1_dtb_boot_audit.py \
 
 The separate `gt1_boot_preflight.py` validates Android Boot v1 metadata and compares an extracted stock second-stage DTB with `boot.img`; it does not create boot images.
 
+## Full ROM source integration
+
+A future Linux x86-64 build must apply the **same source fixes** as Kernel CI. The previous standalone full-build script did not carry all 13 inline CI GCC 9 / QCA source fixes; the verified `build/rom-compat-patches/` series and `build/scripts/gt1_full_rom_build.sh` now bridge this gap.
+
+On the development Mac, run the **read-only** source and private blob audit:
+
+```bash
+GT1_PRIVATE_VENDOR_ROOT=/Users/pong/Documents/ATV/vendor/amlogic/gt1v30 \
+  bash build/scripts/gt1_full_rom_build.sh audit
+```
+
+On a properly provisioned **Linux x86-64** machine with a case-sensitive filesystem and sufficient disk and RAM, first set `GT1_LINEAGE_ROOT` and `GT1_PRIVATE_VENDOR_ROOT`, then run `check-host`. After reviewing the results, `sync` fetches the pinned LineageOS 19.1 source, `patch` applies the reviewed Kernel/QCA/Mali mail patches, `overlay` copies board sources and private vendor files, and `rom` builds the Android package. The `all` action combines those phases **but never flashes a device**.
+
+The local manifest is `build/manifests/gt1v30.xml` (nine pinned Git projects). `gt1_export_rom_compat.py` regenerates and verifies the 13 CI source fixes on a case-sensitive workspace. `rom-source-integration.yml` checks their portability and patch application; this is separate from a full Android compilation.
+
 ## Known limitations
 
 - This repository **does not contain** a full LineageOS/AOSP Android 12L source checkout or a complete usable Android TV 12L userspace image.
