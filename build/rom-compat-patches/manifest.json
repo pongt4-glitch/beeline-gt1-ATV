@@ -1,0 +1,39 @@
+{
+  "kernel_pinned_commit": "ffb8d9d46aac1cde5ee5a1495aa86b62e484ac77",
+  "qca_pinned_commit": "6d051c69d3b8acccc97abdbe0008c764a6901573",
+  "inline_compat_steps": 13,
+  "patches": {
+    "kernel": {
+      "path": "build/rom-compat-patches/kernel/0007-kernel-ci-compatibility.patch",
+      "sha256": "ec9642d58a3905eb1812bcc05092933711b5e67b97a791defe073761ffcaf458",
+      "changed_files": [
+        "arch/arm64/kernel/ftrace.c",
+        "drivers/amlogic/ddr_tool/ddr_port_desc.c",
+        "drivers/amlogic/ddr_tool/dmc_monitor.c",
+        "drivers/amlogic/efuse/efuse64.c",
+        "drivers/amlogic/media/common/codec_mm/configs/configs.c",
+        "drivers/amlogic/memory_ext/watch_point.c",
+        "drivers/amlogic/pm/gx_pm.c",
+        "drivers/amlogic/usb/dwc_otg/310/dwc_otg_pcd_intr.c",
+        "fs/configfs/symlink.c",
+        "fs/exec.c",
+        "fs/ext4/super.c",
+        "fs/kernfs/symlink.c",
+        "include/trace/events/writeback.h",
+        "kernel/printk/printk.c",
+        "kernel/trace/trace.c",
+        "mm/vmscan.c"
+      ]
+    },
+    "qca": {
+      "path": "build/rom-compat-patches/qca9377/0003-qca-ci-compatibility.patch",
+      "sha256": "c5442b021e665955fd4dd6889b163725a2484d4b2ff3258f0041602b1bb3896c",
+      "changed_files": [
+        "AIO/drivers/qcacld-new/CORE/SAP/src/sapChSelect.c",
+        "AIO/drivers/qcacld-new/CORE/SME/src/sme_common/sme_Api.c"
+      ]
+    }
+  },
+  "verified_against_full_android_userspace": false,
+  "inline_source_sha256": "70e71d61a79d24775679f38b73bb815ebea2a52e155f1a98433b7ca0dffe934c"
+}

@@ -1,0 +1,18 @@
+name: GT1 Full ROM Source Integration — Read-only Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-integration:
+    name: Verify pinned kernel/QCA/Mali and ROM source equivalence
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout public staging source
+        uses: actions/checkout@v4
+      - name: Verify 13 compatibility source edits and patch series
+        run: bash build/scripts/gt1_rom_source_ci.sh

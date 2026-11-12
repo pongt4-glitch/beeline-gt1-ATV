@@ -1,0 +1,212 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GT1 Kernel Safety <gt1-kernel@localhost>
+Date: Thu, 12 Nov 2026 15:20:00 +0700
+Subject: [PATCH] fix(kernel): secure remaining string operations, batch 2
+
+Preserve fixed 16-byte eMMC field semantics and bound ring-buffer
+logging; terminate user-supplied HID names safely.
+
+---
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -751,6 +751,7 @@
+ {
+ 	struct hid_device *hid;
+ 	int err;
++	size_t name_len;
+ 
+ 	session->rd_data = memdup_user(req->rd_data, req->rd_size);
+ 	if (IS_ERR(session->rd_data))
+@@ -774,7 +775,9 @@
+ 	hid->version = req->version;
+ 	hid->country = req->country;
+ 
+-	strncpy(hid->name, req->name, sizeof(req->name) - 1);
++	name_len = strnlen(req->name, sizeof(req->name) - 1);
++	memcpy(hid->name, req->name, name_len);
++	hid->name[name_len] = '\0';
+ 
+ 	snprintf(hid->phys, sizeof(hid->phys), "%pMR",
+ 		 &l2cap_pi(session->ctrl_sock->sk)->chan->src);
+diff --git a/drivers/hid/uhid.c b/drivers/hid/uhid.c
+--- a/drivers/hid/uhid.c
++++ b/drivers/hid/uhid.c
+@@ -509,11 +509,17 @@
+ 	}
+ 
+ 	len = min(sizeof(hid->name), sizeof(ev->u.create2.name)) - 1;
+-	strncpy(hid->name, ev->u.create2.name, len);
++	memset(hid->name, 0, len + 1);
++	memcpy(hid->name, ev->u.create2.name,
++	       strnlen((const char *)ev->u.create2.name, len));
+ 	len = min(sizeof(hid->phys), sizeof(ev->u.create2.phys)) - 1;
+-	strncpy(hid->phys, ev->u.create2.phys, len);
++	memset(hid->phys, 0, len + 1);
++	memcpy(hid->phys, ev->u.create2.phys,
++	       strnlen((const char *)ev->u.create2.phys, len));
+ 	len = min(sizeof(hid->uniq), sizeof(ev->u.create2.uniq)) - 1;
+-	strncpy(hid->uniq, ev->u.create2.uniq, len);
++	memset(hid->uniq, 0, len + 1);
++	memcpy(hid->uniq, ev->u.create2.uniq,
++	       strnlen((const char *)ev->u.create2.uniq, len));
+ 
+ 	hid->ll_driver = &uhid_hid_driver;
+ 	hid->bus = ev->u.create2.bus;
+diff --git a/drivers/amlogic/mmc/emmc_partitions.c b/drivers/amlogic/mmc/emmc_partitions.c
+--- a/drivers/amlogic/mmc/emmc_partitions.c
++++ b/drivers/amlogic/mmc/emmc_partitions.c
+@@ -1208,14 +1208,23 @@
+ 	for (i = 0; i < MAX_MMC_PART_NUM; i++) {
+ 		par_table = &table[i];
+ 		if (par_table->size == -1)
+-			pr_info("part: %d, name : %10s, size : %-4s mask_flag %d\n",
++			pr_info("part: %d, name : %10.16s, size : %-4s mask_flag %d\n",
+ 					i, par_table->name, "end",
+ 					par_table->mask_flags);
+ 		else
+-			pr_info("part: %d, name : %10s, size : %-4llx  mask_flag %d\n",
++			pr_info("part: %d, name : %10.16s, size : %-4llx  mask_flag %d\n",
+ 					i, par_table->name, par_table->size,
+ 					par_table->mask_flags);
+ 	}
++}
++
++/* Preserve all 16 on-disk name bytes, including space for no NUL. */
++static void copy_fixed_part_name(char *dest, const char *src)
++{
++	size_t name_len = strnlen(src, MAX_MMC_PART_NAME_LEN);
++
++	memset(dest, 0, MAX_MMC_PART_NAME_LEN);
++	memcpy(dest, src, name_len);
+ }
+ 
+ static ssize_t emmc_part_table_get(struct class *class,
+@@ -1226,8 +1235,8 @@
+ 	int i = 0, part_num = 0;
+ 
+ 	tmp_table = pt_fmt->partitions;
+-	part_table = kmalloc(MAX_MMC_PART_NUM
+-			*sizeof(struct partitions), GFP_KERNEL);
++	part_table = kcalloc(MAX_MMC_PART_NUM,
++			 sizeof(*part_table), GFP_KERNEL);
+ 
+ 	if (!part_table) {
+ 		pr_info("[%s] malloc failed for  part_table!\n", __func__);
+@@ -1236,9 +1245,8 @@
+ 
+ 	for (i = 0; i < MAX_MMC_PART_NUM; i++) {
+ 		if (tmp_table[i].mask_flags == STORE_CODE) {
+-			strncpy(part_table[part_num].name,
+-					tmp_table[i].name,
+-					MAX_MMC_PART_NAME_LEN);
++			copy_fixed_part_name(part_table[part_num].name,
++					tmp_table[i].name);
+ 
+ 			part_table[part_num].size = tmp_table[i].size;
+ 			part_table[part_num].offset = tmp_table[i].offset;
+@@ -1250,9 +1258,8 @@
+ 	}
+ 	for (i = 0; i < MAX_MMC_PART_NUM; i++) {
+ 		if (tmp_table[i].mask_flags == STORE_CACHE) {
+-			strncpy(part_table[part_num].name,
+-					tmp_table[i].name,
+-					MAX_MMC_PART_NAME_LEN);
++			copy_fixed_part_name(part_table[part_num].name,
++					tmp_table[i].name);
+ 
+ 			part_table[part_num].size = tmp_table[i].size;
+ 			part_table[part_num].offset = tmp_table[i].offset;
+@@ -1265,9 +1272,8 @@
+ 	}
+ 	for (i = 0; i < MAX_MMC_PART_NUM; i++) {
+ 		if (tmp_table[i].mask_flags == STORE_DATA) {
+-			strncpy(part_table[part_num].name,
+-					tmp_table[i].name,
+-					MAX_MMC_PART_NAME_LEN);
++			copy_fixed_part_name(part_table[part_num].name,
++					tmp_table[i].name);
+ 
+ 			part_table[part_num].size = tmp_table[i].size;
+ 			part_table[part_num].offset = tmp_table[i].offset;
+diff --git a/drivers/amlogic/media/vin/tvin/hdmirx/hdmi_rx_drv.c b/drivers/amlogic/media/vin/tvin/hdmirx/hdmi_rx_drv.c
+--- a/drivers/amlogic/media/vin/tvin/hdmirx/hdmi_rx_drv.c
++++ b/drivers/amlogic/media/vin/tvin/hdmirx/hdmi_rx_drv.c
+@@ -1282,47 +1282,47 @@
+ int rx_pr(const char *fmt, ...)
+ {
+ 	va_list args;
+-	int avail = PRINT_TEMP_BUF_SIZE;
+ 	char buf[PRINT_TEMP_BUF_SIZE];
+-	int pos = 0;
++	const char *log_fmt = fmt;
++	size_t fmt_len;
+ 	int len = 0;
++	bool add_prefix;
+ 	static bool last_break = 1;
+ 
+-	if ((last_break == 1) &&
+-		(strlen(fmt) > 1)) {
+-		strcpy(buf, "[RX]-");
+-		for (len = 0; len < strlen(fmt); len++)
+-			if (fmt[len] == '\n')
+-				pos++;
+-			else
+-				break;
+-
+-		strncpy(buf + 5, fmt + pos, (sizeof(buf) - 5));
+-	} else
+-		strcpy(buf, fmt);
+-	if (fmt[strlen(fmt) - 1] == '\n')
+-		last_break = 1;
+-	else
+-		last_break = 0;
++	if (!fmt)
++		return -EINVAL;
++
++	fmt_len = strlen(fmt);
++	add_prefix = last_break && fmt_len > 1;
++	if (add_prefix) {
++		/* Preserve the legacy prefix and leading-newline handling. */
++		while (*log_fmt == '\n')
++			log_fmt++;
++	}
++	last_break = fmt_len && fmt[fmt_len - 1] == '\n';
++
+ 	if (log_level & LOG_EN) {
++		if (add_prefix)
++			len = scnprintf(buf, sizeof(buf), "[RX]-");
+ 		va_start(args, fmt);
+-		vprintk(buf, args);
++		len += vscnprintf(buf + len, sizeof(buf) - len,
++				log_fmt, args);
+ 		va_end(args);
++		/* Do not pass a possibly truncated format to vprintk. */
++		printk("%s", buf);
+ 		return 0;
+ 	}
++
+ 	if (hdmirx_log_buf_size == 0)
+ 		return 0;
+ 
+-	/* len += snprintf(buf+len, avail-len, "%d:",log_seq++); */
+-	len += snprintf(buf + len, avail - len, "[%u] ", (unsigned int)jiffies);
++	len = scnprintf(buf, sizeof(buf), "[%u] ", (unsigned int)jiffies);
+ 	va_start(args, fmt);
+-	len += vsnprintf(buf + len, avail - len, fmt, args);
++	len += vscnprintf(buf + len, sizeof(buf) - len, fmt, args);
+ 	va_end(args);
+-	if ((avail-len) <= 0)
+-		buf[PRINT_TEMP_BUF_SIZE - 1] = '\0';
+-
+-	pos = rx_pr_buf(buf, len);
+-	return pos;
++
++	/* vscnprintf returns bytes actually stored, not requested length. */
++	return rx_pr_buf(buf, len);
+ }
+ 
+ static int log_init(int bufsize)
+
+-- 
+2.39.0

@@ -1,0 +1,521 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GT1 Kernel Safety <gt1-kernel@localhost>
+Date: Thu, 12 Nov 2026 10:00:00 +0700
+Subject: [PATCH] fix(kernel): mirror CI GCC9 and Amlogic compatibility
+
+Capture the tested inline CI source edits for full ROM builds.
+
+---
+diff --git a/arch/arm64/kernel/ftrace.c b/arch/arm64/kernel/ftrace.c
+index 40ad08ac..67e8f82d 100644
+--- a/arch/arm64/kernel/ftrace.c
++++ b/arch/arm64/kernel/ftrace.c
+@@ -119,6 +119,7 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
+ 	unsigned long old;
+ 	struct ftrace_graph_ent trace;
+ 	int err;
++	int trace_depth;
+ 
+ 	if (unlikely(atomic_read(&current->tracing_graph_pause)))
+ 		return;
+@@ -137,7 +138,8 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
+ 	if (!ftrace_graph_entry(&trace))
+ 		return;
+ 
+-	err = ftrace_push_return_trace(old, self_addr, &trace.depth,
++	trace_depth = trace.depth;
++	err = ftrace_push_return_trace(old, self_addr, &trace_depth,
+ 				       frame_pointer, NULL);
+ 	if (err == -EBUSY)
+ 		return;
+diff --git a/drivers/amlogic/ddr_tool/ddr_port_desc.c b/drivers/amlogic/ddr_tool/ddr_port_desc.c
+index 4871abae..c06f948c 100644
+--- a/drivers/amlogic/ddr_tool/ddr_port_desc.c
++++ b/drivers/amlogic/ddr_tool/ddr_port_desc.c
+@@ -50,7 +50,7 @@
+  *         |    |     | ... |     |
+  *       emmc  ge2d  usb  audio  spicc
+  */
+-static struct ddr_port_desc ddr_port_desc_m8b[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_m8b[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -78,7 +78,7 @@ static struct ddr_port_desc ddr_port_desc_m8b[] __initdata = {
+ 	{ .port_id = 45, .port_name = "ETHERNET"      }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_gxbb[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_gxbb[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -111,7 +111,7 @@ static struct ddr_port_desc ddr_port_desc_gxbb[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_gxl[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_gxl[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -146,7 +146,7 @@ static struct ddr_port_desc ddr_port_desc_gxl[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_gxm[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_gxm[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI"          },
+ 	{ .port_id =  2, .port_name = "H265ENC"       },
+@@ -181,7 +181,7 @@ static struct ddr_port_desc ddr_port_desc_gxm[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_gxlx[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_gxlx[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -216,7 +216,7 @@ static struct ddr_port_desc ddr_port_desc_gxlx[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_g12a[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_g12a[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI"          },
+ 	{ .port_id =  2, .port_name = "PCIE"          },
+@@ -252,7 +252,7 @@ static struct ddr_port_desc ddr_port_desc_g12a[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_g12b[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_g12b[] = {
+ 	{ .port_id =  0, .port_name = "ARM-ADDR-E"    },
+ 	{ .port_id =  1, .port_name = "MALI"          },
+ 	{ .port_id =  2, .port_name = "PCIE"          },
+@@ -293,7 +293,7 @@ static struct ddr_port_desc ddr_port_desc_g12b[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_axg[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_axg[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "PCIE-A"        },
+ 	{ .port_id =  2, .port_name = "PCIE-B"        },
+@@ -315,7 +315,7 @@ static struct ddr_port_desc ddr_port_desc_axg[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SPICC1"        }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_txl[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_txl[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -351,7 +351,7 @@ static struct ddr_port_desc ddr_port_desc_txl[] __initdata = {
+ 	{ .port_id = 47, .port_name = "DEMOD"         }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_txlx[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_txlx[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -387,7 +387,7 @@ static struct ddr_port_desc ddr_port_desc_txlx[] __initdata = {
+ 	{ .port_id = 47, .port_name = "DEMOD"         }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_txhd[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_txhd[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  2, .port_name = "MALI1"         },
+@@ -421,7 +421,7 @@ static struct ddr_port_desc ddr_port_desc_txhd[] __initdata = {
+ 	{ .port_id = 47, .port_name = "DEMOD"         }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_tl1[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_tl1[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI0"         },
+ 	{ .port_id =  3, .port_name = "HDCP_HDMI"     },
+@@ -456,7 +456,7 @@ static struct ddr_port_desc ddr_port_desc_tl1[] __initdata = {
+ 	{ .port_id = 47, .port_name = "DEMOD"         }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_sm1[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_sm1[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI"          },
+ 	{ .port_id =  2, .port_name = "PCIE"          },
+@@ -493,7 +493,7 @@ static struct ddr_port_desc ddr_port_desc_sm1[] __initdata = {
+ 	{ .port_id = 46, .port_name = "SANA"          }
+ };
+ 
+-static struct ddr_port_desc ddr_port_desc_tm2[] __initdata = {
++static struct ddr_port_desc ddr_port_desc_tm2[] = {
+ 	{ .port_id =  0, .port_name = "ARM"           },
+ 	{ .port_id =  1, .port_name = "MALI"          },
+ 	{ .port_id =  2, .port_name = "PCIE"          },
+@@ -538,7 +538,7 @@ static struct ddr_port_desc ddr_port_desc_tm2[] __initdata = {
+ static struct ddr_port_desc *chip_ddr_port;
+ static unsigned char chip_ddr_port_num;
+ 
+-int __init ddr_find_port_desc(int cpu_type, struct ddr_port_desc **desc)
++int ddr_find_port_desc(int cpu_type, struct ddr_port_desc **desc)
+ {
+ 	int desc_size = -EINVAL;
+ 
+diff --git a/drivers/amlogic/ddr_tool/dmc_monitor.c b/drivers/amlogic/ddr_tool/dmc_monitor.c
+index 4be50613..58a50448 100644
+--- a/drivers/amlogic/ddr_tool/dmc_monitor.c
++++ b/drivers/amlogic/ddr_tool/dmc_monitor.c
+@@ -43,9 +43,9 @@
+ 
+ static struct dmc_monitor *dmc_mon;
+ 
+-static unsigned long init_dev_mask   __initdata;
+-static unsigned long init_start_addr __initdata;
+-static unsigned long init_end_addr   __initdata;
++static unsigned long init_dev_mask;
++static unsigned long init_start_addr;
++static unsigned long init_end_addr;
+ 
+ static int __init early_dmc_param(char *buf)
+ {
+diff --git a/drivers/amlogic/efuse/efuse64.c b/drivers/amlogic/efuse/efuse64.c
+index ea1e48b4..d2a8247f 100644
+--- a/drivers/amlogic/efuse/efuse64.c
++++ b/drivers/amlogic/efuse/efuse64.c
+@@ -20,6 +20,7 @@
+ #include <linux/fs.h>
+ #include <linux/device.h>
+ #include <linux/slab.h>
++#include <linux/string.h>
+ #include <linux/delay.h>
+ #include <linux/uaccess.h>
+ #include <linux/platform_device.h>
+@@ -611,7 +612,6 @@ int get_efusekey_info(struct device_node *np)
+ 	char *propname;
+ 	const char *uname;
+ 	int ret;
+-	int size;
+ 
+ 	phandle = of_get_property(np, "key", NULL);
+ 	if (!phandle) {
+@@ -660,9 +660,8 @@ int get_efusekey_info(struct device_node *np)
+ 			pr_err("please config keyname item\n");
+ 			goto err;
+ 		}
+-		size = sizeof(efusekey_infos[index].keyname) - 1;
+-		strncpy(efusekey_infos[index].keyname, uname,
+-			strlen(uname) > size ? size:strlen(uname));
++		strlcpy(efusekey_infos[index].keyname, uname,
++			sizeof(efusekey_infos[index].keyname));
+ 		ret = of_property_read_u32(np_key, "offset",
+ 			&(efusekey_infos[index].offset));
+ 		if (ret) {
+diff --git a/drivers/amlogic/media/common/codec_mm/configs/configs.c b/drivers/amlogic/media/common/codec_mm/configs/configs.c
+index 87f62992..fc956d76 100644
+--- a/drivers/amlogic/media/common/codec_mm/configs/configs.c
++++ b/drivers/amlogic/media/common/codec_mm/configs/configs.c
+@@ -17,6 +17,7 @@
+ 
+ #include <linux/amlogic/media/codec_mm/configs.h>
+ #include "configs_priv.h"
++#include <linux/string.h>
+ static struct mconfig_node root_node;
+ static struct mconfig_node *configs_get_root_node(void)
+ {
+@@ -592,7 +593,7 @@ static char *configs_build_prefix(
+ 		}
+ 	}
+ 	if (buf[0] && buf[strlen(buf) - 1] != '.')
+-		strncat(buf, ".", size);
++		strlcat(buf, ".", size);
+ 	return buf;
+ }
+ 
+diff --git a/drivers/amlogic/memory_ext/watch_point.c b/drivers/amlogic/memory_ext/watch_point.c
+index 35b4a050..a251b054 100644
+--- a/drivers/amlogic/memory_ext/watch_point.c
++++ b/drivers/amlogic/memory_ext/watch_point.c
+@@ -447,7 +447,6 @@ static struct platform_driver aml_watch_point_driver = {
+ 		.name  = "aml_watch_point",
+ 		.owner = THIS_MODULE,
+ 	},
+-	.probe = aml_watch_point_probe,
+ 	.remove = aml_watch_point_drv_remove,
+ };
+ 
+diff --git a/drivers/amlogic/pm/gx_pm.c b/drivers/amlogic/pm/gx_pm.c
+index 0ea41c52..fee0f725 100644
+--- a/drivers/amlogic/pm/gx_pm.c
++++ b/drivers/amlogic/pm/gx_pm.c
+@@ -215,7 +215,7 @@ ssize_t time_out_store(struct device *dev, struct device_attribute *attr,
+ 
+ DEVICE_ATTR(time_out, 0664, time_out_show, time_out_store);
+ 
+-static int __init meson_pm_probe(struct platform_device *pdev)
++static int meson_pm_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *cpu_node;
+ 	struct device_node *state_node;
+diff --git a/drivers/amlogic/usb/dwc_otg/310/dwc_otg_pcd_intr.c b/drivers/amlogic/usb/dwc_otg/310/dwc_otg_pcd_intr.c
+index cd503c67..678656b0 100644
+--- a/drivers/amlogic/usb/dwc_otg/310/dwc_otg_pcd_intr.c
++++ b/drivers/amlogic/usb/dwc_otg/310/dwc_otg_pcd_intr.c
+@@ -2183,7 +2183,7 @@ static void complete_ep(dwc_otg_pcd_ep_t *ep)
+ 	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
+ 	dwc_otg_dev_in_ep_regs_t *in_ep_regs =
+ 	    dev_if->in_ep_regs[ep->dwc_ep.num];
+-	deptsiz_data_t deptsiz;
++	deptsiz_data_t deptsiz = { .d32 = 0 };
+ 	dev_dma_desc_sts_t desc_sts;
+ 	dwc_otg_pcd_request_t *req = 0;
+ 	dwc_otg_dev_dma_desc_t *dma_desc;
+diff --git a/fs/configfs/symlink.c b/fs/configfs/symlink.c
+index 314b4eda..d298e509 100644
+--- a/fs/configfs/symlink.c
++++ b/fs/configfs/symlink.c
+@@ -28,6 +28,7 @@
+ #include <linux/module.h>
+ #include <linux/namei.h>
+ #include <linux/slab.h>
++#include <linux/string.h>
+ 
+ #include <linux/configfs.h>
+ #include "configfs_internal.h"
+@@ -64,7 +65,7 @@ static void fill_item_path(struct config_item * item, char * buffer, int length)
+ 
+ 		/* back up enough to print this bus id with '/' */
+ 		length -= cur;
+-		strncpy(buffer + length,config_item_name(p),cur);
++		memcpy(buffer + length, config_item_name(p), cur);
+ 		*(buffer + --length) = '/';
+ 	}
+ }
+diff --git a/fs/exec.c b/fs/exec.c
+index 3e2de29a..c73b2e36 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1232,7 +1232,7 @@ char *get_task_comm(char *buf, struct task_struct *tsk)
+ {
+ 	/* buf must be at least sizeof(tsk->comm) in size */
+ 	task_lock(tsk);
+-	strncpy(buf, tsk->comm, sizeof(tsk->comm));
++	strncpy(buf, tsk->comm, TASK_COMM_LEN);
+ 	task_unlock(tsk);
+ 	return buf;
+ }
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+index 63d7bcb8..6ed46bb1 100644
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -321,12 +321,15 @@ static void __save_error_info(struct super_block *sb, const char *func,
+ 		return;
+ 	es->s_state |= cpu_to_le16(EXT4_ERROR_FS);
+ 	es->s_last_error_time = cpu_to_le32(get_seconds());
+-	strncpy(es->s_last_error_func, func, sizeof(es->s_last_error_func));
++	memset(es->s_last_error_func, 0, sizeof(es->s_last_error_func));
++	memcpy(es->s_last_error_func, func,
++	       strnlen(func, sizeof(es->s_last_error_func)));
+ 	es->s_last_error_line = cpu_to_le32(line);
+ 	if (!es->s_first_error_time) {
+ 		es->s_first_error_time = es->s_last_error_time;
+-		strncpy(es->s_first_error_func, func,
+-			sizeof(es->s_first_error_func));
++		memset(es->s_first_error_func, 0, sizeof(es->s_first_error_func));
++		memcpy(es->s_first_error_func, func,
++		       strnlen(func, sizeof(es->s_first_error_func)));
+ 		es->s_first_error_line = cpu_to_le32(line);
+ 		es->s_first_error_ino = es->s_last_error_ino;
+ 		es->s_first_error_block = es->s_last_error_block;
+diff --git a/fs/kernfs/symlink.c b/fs/kernfs/symlink.c
+index 9b43ca02..6283c37c 100644
+--- a/fs/kernfs/symlink.c
++++ b/fs/kernfs/symlink.c
+@@ -11,6 +11,7 @@
+ #include <linux/fs.h>
+ #include <linux/gfp.h>
+ #include <linux/namei.h>
++#include <linux/string.h>
+ 
+ #include "kernfs-internal.h"
+ 
+@@ -88,7 +89,7 @@ static int kernfs_get_target_path(struct kernfs_node *parent,
+ 		int slen = strlen(kn->name);
+ 
+ 		len -= slen;
+-		strncpy(s + len, kn->name, slen);
++		memcpy(s + len, kn->name, slen);
+ 		if (len)
+ 			s[--len] = '/';
+ 
+diff --git a/include/trace/events/writeback.h b/include/trace/events/writeback.h
+index 2ccd9ccb..1042e417 100644
+--- a/include/trace/events/writeback.h
++++ b/include/trace/events/writeback.h
+@@ -5,6 +5,7 @@
+ #define _TRACE_WRITEBACK_H
+ 
+ #include <linux/tracepoint.h>
++#include <linux/string.h>
+ #include <linux/backing-dev.h>
+ #include <linux/writeback.h>
+ 
+@@ -65,8 +66,7 @@ TRACE_EVENT(writeback_dirty_page,
+ 	),
+ 
+ 	TP_fast_assign(
+-		strncpy(__entry->name,
+-			mapping ? dev_name(inode_to_bdi(mapping->host)->dev) : "(unknown)", 32);
++		strlcpy(__entry->name, mapping ? dev_name(inode_to_bdi(mapping->host)->dev) : "(unknown)", sizeof(__entry->name));
+ 		__entry->ino = mapping ? mapping->host->i_ino : 0;
+ 		__entry->index = page->index;
+ 	),
+@@ -95,8 +95,7 @@ DECLARE_EVENT_CLASS(writeback_dirty_inode_template,
+ 		struct backing_dev_info *bdi = inode_to_bdi(inode);
+ 
+ 		/* may be called for files on pseudo FSes w/ unregistered bdi */
+-		strncpy(__entry->name,
+-			bdi->dev ? dev_name(bdi->dev) : "(unknown)", 32);
++		strlcpy(__entry->name, bdi->dev ? dev_name(bdi->dev) : "(unknown)", sizeof(__entry->name));
+ 		__entry->ino		= inode->i_ino;
+ 		__entry->state		= inode->i_state;
+ 		__entry->flags		= flags;
+@@ -175,8 +174,7 @@ DECLARE_EVENT_CLASS(writeback_write_inode_template,
+ 	),
+ 
+ 	TP_fast_assign(
+-		strncpy(__entry->name,
+-			dev_name(inode_to_bdi(inode)->dev), 32);
++		strlcpy(__entry->name, dev_name(inode_to_bdi(inode)->dev), sizeof(__entry->name));
+ 		__entry->ino		= inode->i_ino;
+ 		__entry->sync_mode	= wbc->sync_mode;
+ 		__entry->cgroup_ino	= __trace_wbc_assign_cgroup(wbc);
+@@ -219,8 +217,7 @@ DECLARE_EVENT_CLASS(writeback_work_class,
+ 		__field(unsigned int, cgroup_ino)
+ 	),
+ 	TP_fast_assign(
+-		strncpy(__entry->name,
+-			wb->bdi->dev ? dev_name(wb->bdi->dev) : "(unknown)", 32);
++		strlcpy(__entry->name, wb->bdi->dev ? dev_name(wb->bdi->dev) : "(unknown)", sizeof(__entry->name));
+ 		__entry->nr_pages = work->nr_pages;
+ 		__entry->sb_dev = work->sb ? work->sb->s_dev : 0;
+ 		__entry->sync_mode = work->sync_mode;
+@@ -273,7 +270,7 @@ DECLARE_EVENT_CLASS(writeback_class,
+ 		__field(unsigned int, cgroup_ino)
+ 	),
+ 	TP_fast_assign(
+-		strncpy(__entry->name, dev_name(wb->bdi->dev), 32);
++		strlcpy(__entry->name, dev_name(wb->bdi->dev), sizeof(__entry->name));
+ 		__entry->cgroup_ino = __trace_wb_assign_cgroup(wb);
+ 	),
+ 	TP_printk("bdi %s: cgroup_ino=%u",
+@@ -296,7 +293,7 @@ TRACE_EVENT(writeback_bdi_register,
+ 		__array(char, name, 32)
+ 	),
+ 	TP_fast_assign(
+-		strncpy(__entry->name, dev_name(bdi->dev), 32);
++		strlcpy(__entry->name, dev_name(bdi->dev), sizeof(__entry->name));
+ 	),
+ 	TP_printk("bdi %s",
+ 		__entry->name
+@@ -321,7 +318,7 @@ DECLARE_EVENT_CLASS(wbc_class,
+ 	),
+ 
+ 	TP_fast_assign(
+-		strncpy(__entry->name, dev_name(bdi->dev), 32);
++		strlcpy(__entry->name, dev_name(bdi->dev), sizeof(__entry->name));
+ 		__entry->nr_to_write	= wbc->nr_to_write;
+ 		__entry->pages_skipped	= wbc->pages_skipped;
+ 		__entry->sync_mode	= wbc->sync_mode;
+@@ -372,7 +369,7 @@ TRACE_EVENT(writeback_queue_io,
+ 	),
+ 	TP_fast_assign(
+ 		unsigned long *older_than_this = work->older_than_this;
+-		strncpy(__entry->name, dev_name(wb->bdi->dev), 32);
++		strlcpy(__entry->name, dev_name(wb->bdi->dev), sizeof(__entry->name));
+ 		__entry->older	= older_than_this ?  *older_than_this : 0;
+ 		__entry->age	= older_than_this ?
+ 				  (jiffies - *older_than_this) * 1000 / HZ : -1;
+@@ -583,8 +580,7 @@ TRACE_EVENT(writeback_sb_inodes_requeue,
+ 	),
+ 
+ 	TP_fast_assign(
+-		strncpy(__entry->name,
+-		        dev_name(inode_to_bdi(inode)->dev), 32);
++		strlcpy(__entry->name, dev_name(inode_to_bdi(inode)->dev), sizeof(__entry->name));
+ 		__entry->ino		= inode->i_ino;
+ 		__entry->state		= inode->i_state;
+ 		__entry->dirtied_when	= inode->dirtied_when;
+@@ -657,8 +653,7 @@ DECLARE_EVENT_CLASS(writeback_single_inode_template,
+ 	),
+ 
+ 	TP_fast_assign(
+-		strncpy(__entry->name,
+-			dev_name(inode_to_bdi(inode)->dev), 32);
++		strlcpy(__entry->name, dev_name(inode_to_bdi(inode)->dev), sizeof(__entry->name));
+ 		__entry->ino		= inode->i_ino;
+ 		__entry->state		= inode->i_state;
+ 		__entry->dirtied_when	= inode->dirtied_when;
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index aedc7f4d..49c91345 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -134,10 +134,10 @@ static int __init control_devkmsg(char *str)
+ 	 */
+ 	if (devkmsg_log == DEVKMSG_LOG_MASK_ON) {
+ 		memset(devkmsg_log_str, 0, DEVKMSG_STR_MAX_SIZE);
+-		strncpy(devkmsg_log_str, "on", 2);
++		memcpy(devkmsg_log_str, "on", 2);
+ 	} else if (devkmsg_log == DEVKMSG_LOG_MASK_OFF) {
+ 		memset(devkmsg_log_str, 0, DEVKMSG_STR_MAX_SIZE);
+-		strncpy(devkmsg_log_str, "off", 3);
++		memcpy(devkmsg_log_str, "off", 3);
+ 	}
+ 	/* else "ratelimit" which is set by default. */
+ 
+diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
+index b7c2012d..938d3ffe 100644
+--- a/kernel/trace/trace.c
++++ b/kernel/trace/trace.c
+@@ -7686,9 +7686,8 @@ void ftrace_dump(enum ftrace_dump_mode oops_dump_mode)
+ 		cnt++;
+ 
+ 		/* reset all but tr, trace, and overruns */
+-		memset(&iter.seq, 0,
+-		       sizeof(struct trace_iterator) -
+-		       offsetof(struct trace_iterator, seq));
++		memset((char *)&iter + offsetof(struct trace_iterator, seq), 0,
++		       sizeof(iter) - offsetof(struct trace_iterator, seq));
+ 		iter.iter_flags |= TRACE_FILE_LAT_FMT;
+ 		iter.pos = -1;
+ 
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 2ea4b002..e0447db1 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -1684,7 +1684,7 @@ static int too_many_isolated(struct pglist_data *pgdat, int file,
+ 	}
+ 
+ #ifdef CONFIG_AMLOGIC_CMA
+-	isolated -= node_page_state(pgdat, NR_CMA_ISOLATED);
++	isolated -= sum_zone_node_page_state(pgdat->node_id, NR_CMA_ISOLATED);
+ #endif /* CONFIG_AMLOGIC_CMA */
+ 	/*
+ 	 * GFP_NOIO/GFP_NOFS callers are allowed to isolate more pages, so they
+@@ -1698,7 +1698,7 @@ static int too_many_isolated(struct pglist_data *pgdat, int file,
+ #ifdef CONFIG_AMLOGIC_CMA
+ 	WARN_ONCE(isolated > inactive,
+ 		  "isolated:%ld, cma:%ld, inactive:%ld, mask:%x, file:%d\n",
+-		  isolated, node_page_state(pgdat, NR_CMA_ISOLATED),
++		  isolated, sum_zone_node_page_state(pgdat->node_id, NR_CMA_ISOLATED),
+ 		  inactive, sc->gfp_mask, file);
+ #endif /* CONFIG_AMLOGIC_CMA */
+ 	return isolated > inactive;
+
+-- 
+2.39.0

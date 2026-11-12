@@ -573,7 +573,42 @@ jobs:
       - name: Steps 5 to 14 - Run Full Kernel, Mali & QCA9377 Build & Verification Script
         run: |
           chmod +x build/scripts/linux_kernel_module_build.sh
-          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-attribute-alias -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned -Wno-error=missing-attributes -Wno-error=stringop-truncation -Wno-error=stringop-overflow" ./build/scripts/linux_kernel_module_build.sh
+          JOBS=2 CROSS_COMPILE=aarch64-linux-gnu- KCFLAGS="-Wno-attribute-alias -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned -Wno-error=missing-attributes" ./build/scripts/linux_kernel_module_build.sh
+
+      - name: Enforce zero string operation compiler warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'warning:.*\[-Wstringop-(truncation|overflow)(=[^]]*)?\]' out/linux-kernel-build/logs/*.log; then
+            echo "FATAL: string operation warnings remain after Priority 1 patches" >&2
+            exit 1
+          fi
+          echo "PASS: no stringop-truncation or stringop-overflow warnings"
+
+      - name: Enforce zero QCA9377 packed MSDU pointer warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'adf_nbuf_pvt\.h:[0-9]+:[0-9]+: warning:.*\[-Waddress-of-packed-member\]' out/linux-kernel-build/logs/*.log; then
+            echo "FATAL: legacy packed MSDU descriptor pointer warning has regressed" >&2
+            exit 1
+          fi
+          echo "PASS: QCA9377 no longer takes an unaligned MSDU ID pointer"
+
+      - name: Verify GT1 DTB memory map matches captured stock RAM
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, "build/scripts")
+          from gt1_dtb_boot_audit import parse, reg_intervals
+          tree, _ = parse("out/linux-kernel-build/artifacts/gt1_v30_2g.dtb")
+          memory = reg_intervals(tree, "/memory@00000000", "linux,usable-memory")
+          if memory != [[0, 0x78000000]]:
+              raise SystemExit(f"Unexpected GT1 memory range: {memory}")
+          print("PASS: DTB system RAM matches observed stock 0x00000000..0x77ffffff")
+          PY
 
       - name: Upload Verified Kernel, Modules & Logs Artifacts
         if: always()
@@ -590,3 +625,13 @@ jobs:
             out/linux-kernel-build/artifacts/SHA256SUMS.txt
             out/linux-kernel-build/logs/*.log
           retention-days: 30
+
+  rom-source-integration:
+    name: Validate ROM source matches tested Kernel CI changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout public staging
+        uses: actions/checkout@v4
+      - name: Audit pinned sources, compatibility patches and Device Tree
+        run: bash build/scripts/gt1_rom_source_ci.sh
