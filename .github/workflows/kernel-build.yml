@@ -317,6 +317,38 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix Amlogic codec config prefix bounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          p = Path(
+              "kernel/amlogic/linux-4.9-pie/"
+              "drivers/amlogic/media/common/codec_mm/configs/configs.c"
+          )
+          s = p.read_text()
+
+          old = 'strncat(buf, ".", size);'
+          new = 'strlcat(buf, ".", size);'
+
+          assert s.count(old) == 1
+          s = s.replace(old, new)
+
+          inc = '#include "configs_priv.h"\n'
+          assert s.count(inc) == 1
+          s = s.replace(
+              inc, inc + '#include <linux/string.h>\n', 1
+          )
+
+          p.write_text(s)
+          print("Amlogic codec config prefix fixed")
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
