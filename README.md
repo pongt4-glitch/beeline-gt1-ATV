@@ -46,6 +46,7 @@ The local manifest is `build/manifests/gt1v30.xml` (nine pinned Git projects). `
 ## Known limitations
 
 - This repository **does not contain** a full LineageOS/AOSP Android 12L source checkout or a complete usable Android TV 12L userspace image.
+- The inherited BoardConfig currently selects **Android Boot Header v2**, but the GT1's real stock `boot.img` uses **v1** and a second-stage DTB. The vendor U-Boot must be verified before attempting to boot a new image. Android userspace is configured as **32-bit `arm`**, while the Linux kernel is `arm64`.
 - Successful Kernel, Mali and QCA builds do not prove successful device boot, vendor HAL compatibility, framebuffer/HDMI output, suspend/resume or Wi-Fi/Bluetooth runtime behavior.
 - Additional GCC 9 warnings still require a separate ABI-sensitive review (see alignment audit). Do not hide warnings or alter binary hardware/UAPI layouts to reduce a warning count.
 - Stock backups and proprietary blobs remain **outside this public repository**. No Flash or device-side eMMC modification is authorized.

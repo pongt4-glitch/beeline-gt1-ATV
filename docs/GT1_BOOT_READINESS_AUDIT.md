@@ -42,6 +42,8 @@ Date: 2026-11-12. Mode: read-only evidence collection; **NO flash, eMMC write or
 - `kernel_addr=0x01080000`, `ramdisk_addr=0x01000000`, `second_addr=0x00f00000`, `tags_addr=0x00000100`.
 - `kernel_size=10,003,720`, `ramdisk_size=0`, `second_size=58,997`. The second payload corresponds in size to the extracted stock boot DTB.
 - `device/amlogic/gt1v30/BoardConfig.mk` specifies 16 MiB boot and 24 MiB recovery partitions and matches these addresses by declared offsets.
+- **New critical boot gate (read-only verified):** `device/amlogic/common/BoardConfigAmlogic.mk` specifies Android boot header **v2**, while the extracted real stock `boot.img` uses **v1** with its 58,997-byte DTB in the second-stage payload. The device's U-Boot acceptance of v2 and the correct DTB placement are **unconfirmed**. Do not force v1 or v2 without reviewing the required boot image structure and U-Boot implementation.
+- **Architecture distinction:** the common BoardConfig specifies `TARGET_ARCH := arm` / `TARGET_CPU_ABI := armeabi-v7a` for Android userspace, while `TARGET_KERNEL_ARCH := arm64`. The project should be described as **ARM64 kernel with 32-bit Android userspace**, pending full ROM build/HAL validation.
 - Boot-image *size fit* and valid image header are necessary but insufficient: bootloader behavior, DTB placement, Android 12L ramdisk/userspace, AVB/vbmeta and rollback must still be validated.
 - The local workspace does **not** contain full LineageOS/AOSP source directories such as `build/envsetup.sh`, `frameworks/base` or `system/core`. The device tree, vendor extraction, Kernel and CI staging components alone cannot currently build a complete Android 12L system image. **No Android 12L image was built.**
 
