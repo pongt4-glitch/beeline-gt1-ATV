@@ -13,6 +13,9 @@ MALI_ROOT="${WORKSPACE_ROOT}/hardware/amlogic/kernel-modules/mali-driver"
 MALI_REL="midgard/r28p0/kernel/drivers/gpu/arm/midgard"
 QCA_ROOT="${WORKSPACE_ROOT}/hardware/amlogic/kernel-modules/qca9377"
 QCA_REL="AIO/drivers/qcacld-new"
+MEDIA_ROOT="${WORKSPACE_ROOT}/hardware/amlogic/kernel-modules/media-pie"
+MEDIA_REL="drivers"
+OPTEE_ROOT="${WORKSPACE_ROOT}/hardware/amlogic/kernel-modules/optee-pie"
 OUT_ROOT="${WORKSPACE_ROOT}/out/linux-kernel-build"
 KERNEL_OUT="${OUT_ROOT}/KERNEL_OBJ"
 MODULES_STAGE="${OUT_ROOT}/modules_staging"
@@ -24,7 +27,9 @@ CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
 HOSTCC_BIN="${HOSTCC_BIN:-gcc}"
 MIN_FREE_KB="${MIN_FREE_KB:-2097152}" # Stop before disk full (< 2 GiB free)
 
-mkdir -p "${KERNEL_OUT}" "${MODULES_STAGE}/mali" "${MODULES_STAGE}/qca9377" "${ARTIFACTS_DIR}" "${LOG_DIR}"
+mkdir -p "${KERNEL_OUT}" "${MODULES_STAGE}/mali" "${MODULES_STAGE}/qca9377" \
+         "${MODULES_STAGE}/media" "${MODULES_STAGE}/optee" \
+         "${ARTIFACTS_DIR}/media" "${ARTIFACTS_DIR}/optee" "${LOG_DIR}"
 
 check_disk_space() {
   local stage_name="$1"
@@ -54,7 +59,7 @@ if find "${WORKSPACE_ROOT}" -maxdepth 3 \( -path "*/device_dump/*" -o -path "*/v
 fi
 
 echo "=== [STEP 3] Verify Source Trees & Commits ===" | tee "${LOG_DIR}/03_source_commits.log"
-for repo_dir in "${KERNEL_SRC}" "${MALI_ROOT}" "${QCA_ROOT}"; do
+for repo_dir in "${KERNEL_SRC}" "${MALI_ROOT}" "${QCA_ROOT}" "${MEDIA_ROOT}" "${OPTEE_ROOT}"; do
   if [ ! -d "${repo_dir}" ]; then
     echo "FATAL: Missing source directory ${repo_dir}" | tee -a "${LOG_DIR}/03_source_commits.log"
     exit 1
@@ -147,6 +152,76 @@ test -f "${QCA_BUILD_DIR}/wlan.ko"
 cp "${QCA_BUILD_DIR}/wlan.ko" "${ARTIFACTS_DIR}/qca9377.ko"
 check_disk_space "11_qca9377_module"
 
+echo "=== [STEP 11b] Build Amlogic Media Pie Modules (media-pie) ===" | tee "${LOG_DIR}/11b_media_modules.log"
+rm -rf "${MODULES_STAGE}/media" "${ARTIFACTS_DIR}/media"
+mkdir -p "${MODULES_STAGE}/media" "${ARTIFACTS_DIR}/media"
+cp -R "${MEDIA_ROOT}/"* "${MODULES_STAGE}/media/"
+MEDIA_BUILD_DIR="${MODULES_STAGE}/media/${MEDIA_REL}"
+MEDIA_CFLAGS="-Wno-error=pointer-sign -Wno-error=frame-larger-than= -Wno-error=missing-braces"
+make -C "${KERNEL_OUT}" \
+  M="${MEDIA_BUILD_DIR}" \
+  ARCH=arm64 CROSS_COMPILE="${CROSS_COMPILE}" \
+  HOSTCC="${HOSTCC_BIN}" HOSTCFLAGS="-O2 -fcommon" \
+  EXTRA_CFLAGS="${MEDIA_CFLAGS}" \
+  CONFIG_AMLOGIC_MEDIA_VDEC_MPEG12=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_MPEG2_MULTI=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_MPEG4=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_MPEG4_MULTI=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_VC1=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_H264=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_H264_MULTI=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_H264_MVC=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_H265=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_VP9=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_MJPEG=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_MJPEG_MULTI=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_REAL=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_AVS=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_AVS_MULTI=m \
+  CONFIG_AMLOGIC_MEDIA_VDEC_AVS2=m \
+  CONFIG_AMLOGIC_MEDIA_VENC_H264=m \
+  CONFIG_AMLOGIC_MEDIA_VENC_H265=m \
+  -j"${JOBS}" modules 2>&1 | tee -a "${LOG_DIR}/11b_media_modules.log"
+MEDIA_KO_LIST=()
+while IFS= read -r ko_file; do
+  MEDIA_KO_LIST+=("${ko_file}")
+done < <(find "${MEDIA_BUILD_DIR}" -type f -name '*.ko' | sort)
+if [ "${#MEDIA_KO_LIST[@]}" -eq 0 ]; then
+  echo "FATAL: No .ko files produced by media-pie!" | tee -a "${LOG_DIR}/11b_media_modules.log"
+  exit 1
+fi
+for ko_file in "${MEDIA_KO_LIST[@]}"; do
+  "${CROSS_COMPILE}strip" --strip-unneeded "${ko_file}"
+  cp "${ko_file}" "${ARTIFACTS_DIR}/media/"
+done
+echo "Built ${#MEDIA_KO_LIST[@]} media-pie modules." | tee -a "${LOG_DIR}/11b_media_modules.log"
+check_disk_space "11b_media_modules"
+
+echo "=== [STEP 11c] Build Amlogic OP-TEE Pie Modules (optee-pie) ===" | tee "${LOG_DIR}/11c_optee_modules.log"
+rm -rf "${MODULES_STAGE}/optee" "${ARTIFACTS_DIR}/optee"
+mkdir -p "${MODULES_STAGE}/optee" "${ARTIFACTS_DIR}/optee"
+cp -R "${OPTEE_ROOT}/"* "${MODULES_STAGE}/optee/"
+OPTEE_BUILD_DIR="${MODULES_STAGE}/optee"
+make -C "${KERNEL_OUT}" \
+  M="${OPTEE_BUILD_DIR}" \
+  ARCH=arm64 CROSS_COMPILE="${CROSS_COMPILE}" \
+  HOSTCC="${HOSTCC_BIN}" HOSTCFLAGS="-O2 -fcommon" \
+  -j"${JOBS}" modules 2>&1 | tee -a "${LOG_DIR}/11c_optee_modules.log"
+OPTEE_KO_LIST=()
+while IFS= read -r ko_file; do
+  OPTEE_KO_LIST+=("${ko_file}")
+done < <(find "${OPTEE_BUILD_DIR}" -type f -name '*.ko' | sort)
+if [ "${#OPTEE_KO_LIST[@]}" -eq 0 ]; then
+  echo "FATAL: No .ko files produced by optee-pie!" | tee -a "${LOG_DIR}/11c_optee_modules.log"
+  exit 1
+fi
+for ko_file in "${OPTEE_KO_LIST[@]}"; do
+  "${CROSS_COMPILE}strip" --strip-unneeded "${ko_file}"
+  cp "${ko_file}" "${ARTIFACTS_DIR}/optee/"
+done
+echo "Built ${#OPTEE_KO_LIST[@]} optee-pie modules." | tee -a "${LOG_DIR}/11c_optee_modules.log"
+check_disk_space "11c_optee_modules"
+
 echo "=== [STEP 12 & STEP 13] modpost, Module.symvers, ELF64, vermagic & Unresolved Symbols Validation ===" | tee "${LOG_DIR}/12_13_module_validation.log"
 cp "${KERNEL_OUT}/arch/arm64/boot/Image.gz" "${ARTIFACTS_DIR}/Image.gz"
 cp "${KERNEL_OUT}/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dtb" "${ARTIFACTS_DIR}/gt1_v30_2g.dtb"
@@ -155,15 +230,33 @@ cp "${KERNEL_OUT}/.config" "${ARTIFACTS_DIR}/kernel.config"
 
 "${CROSS_COMPILE}readelf" -h "${KERNEL_OUT}/vmlinux" | tee -a "${LOG_DIR}/12_13_module_validation.log"
 
+COMBINED_SYMVERS="${OUT_ROOT}/Combined.Module.symvers"
+cat "${KERNEL_OUT}/Module.symvers" > "${COMBINED_SYMVERS}"
+for extra_symvers in "${MEDIA_BUILD_DIR}/Module.symvers" "${OPTEE_BUILD_DIR}/Module.symvers"; do
+  if [ -f "${extra_symvers}" ]; then
+    cat "${extra_symvers}" >> "${COMBINED_SYMVERS}"
+  fi
+done
+
+ALL_BUILT_KOS=(
+  "${ARTIFACTS_DIR}/mali.ko"
+  "${ARTIFACTS_DIR}/qca9377.ko"
+)
+for ko_file in "${ARTIFACTS_DIR}/media/"*.ko "${ARTIFACTS_DIR}/optee/"*.ko; do
+  if [ -f "${ko_file}" ]; then
+    ALL_BUILT_KOS+=("${ko_file}")
+  fi
+done
+
 UNRESOLVED_COUNT=0
-for ko in "${ARTIFACTS_DIR}/mali.ko" "${ARTIFACTS_DIR}/qca9377.ko"; do
+for ko in "${ALL_BUILT_KOS[@]}"; do
   echo "--- Inspecting ${ko} ---" | tee -a "${LOG_DIR}/12_13_module_validation.log"
   file "${ko}" | grep "ELF 64-bit LSB relocatable, ARM aarch64" | tee -a "${LOG_DIR}/12_13_module_validation.log"
   "${CROSS_COMPILE}readelf" -h "${ko}" | tee -a "${LOG_DIR}/12_13_module_validation.log"
   modinfo "${ko}" | tee -a "${LOG_DIR}/12_13_module_validation.log"
   while read -r sym; do
     if [ -n "${sym}" ]; then
-      if ! grep -q -w "${sym}" "${KERNEL_OUT}/Module.symvers" && ! "${CROSS_COMPILE}nm" "${KERNEL_OUT}/vmlinux" | grep -q -w "${sym}"; then
+      if ! grep -q -w "${sym}" "${COMBINED_SYMVERS}" && ! "${CROSS_COMPILE}nm" "${KERNEL_OUT}/vmlinux" | grep -q -w "${sym}"; then
         echo "ERROR: Unresolved symbol '${sym}' in ${ko}!" | tee -a "${LOG_DIR}/12_13_module_validation.log"
         UNRESOLVED_COUNT=$((UNRESOLVED_COUNT + 1))
       fi
@@ -175,13 +268,15 @@ if [ "${UNRESOLVED_COUNT}" -gt 0 ]; then
   echo "FATAL: ${UNRESOLVED_COUNT} unresolved symbols detected across built modules!" | tee -a "${LOG_DIR}/12_13_module_validation.log"
   exit 1
 fi
-echo "PASS: 0 unresolved symbols against vmlinux / Module.symvers." | tee -a "${LOG_DIR}/12_13_module_validation.log"
+echo "PASS: 0 unresolved symbols against vmlinux / Module.symvers (${#ALL_BUILT_KOS[@]} modules checked)." | tee -a "${LOG_DIR}/12_13_module_validation.log"
 
 echo "=== [STEP 14] SHA-256 Checksums & Artifact Manifest ===" | tee "${LOG_DIR}/14_sha256.log"
 sha256sum "${ARTIFACTS_DIR}/Image.gz" \
           "${ARTIFACTS_DIR}/gt1_v30_2g.dtb" \
           "${ARTIFACTS_DIR}/mali.ko" \
           "${ARTIFACTS_DIR}/qca9377.ko" \
+          "${ARTIFACTS_DIR}/media/"*.ko \
+          "${ARTIFACTS_DIR}/optee/"*.ko \
           "${ARTIFACTS_DIR}/Module.symvers" \
           "${ARTIFACTS_DIR}/kernel.config" | tee "${ARTIFACTS_DIR}/SHA256SUMS.txt" "${LOG_DIR}/14_sha256.log"
 echo "ALL 14 STEPS COMPLETED WITH EXIT CODE 0."

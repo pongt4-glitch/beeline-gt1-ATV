@@ -57,6 +57,14 @@ jobs:
             git -C hardware/amlogic/kernel-modules/qca9377 checkout 6d051c6
             git -C hardware/amlogic/kernel-modules/qca9377 am "$GITHUB_WORKSPACE"/build/ci-staging/patches/qca9377/*.patch
           fi
+          if [ ! -d "hardware/amlogic/kernel-modules/media-pie/.git" ]; then
+            git clone --depth 20 -b lineage-19.1 https://github.com/LineageOS/android_hardware_amlogic_kernel-modules_media-pie.git hardware/amlogic/kernel-modules/media-pie
+            git -C hardware/amlogic/kernel-modules/media-pie checkout 0014f0de13d86f87cae03108b13852ce4e53bb62
+          fi
+          if [ ! -d "hardware/amlogic/kernel-modules/optee-pie/.git" ]; then
+            git clone --depth 20 -b lineage-19.1 https://github.com/LineageOS/android_hardware_amlogic_kernel-modules_optee-pie.git hardware/amlogic/kernel-modules/optee-pie
+            git -C hardware/amlogic/kernel-modules/optee-pie checkout 47248fb86ac2fc5fc0c75589f132a5b73bb312ee
+          fi
 
       - name: Fix GCC 9 compatibility in legacy kernel sources
         shell: bash
@@ -620,6 +628,8 @@ jobs:
             out/linux-kernel-build/artifacts/gt1_v30_2g.dtb
             out/linux-kernel-build/artifacts/mali.ko
             out/linux-kernel-build/artifacts/qca9377.ko
+            out/linux-kernel-build/artifacts/media/*.ko
+            out/linux-kernel-build/artifacts/optee/*.ko
             out/linux-kernel-build/artifacts/Module.symvers
             out/linux-kernel-build/artifacts/kernel.config
             out/linux-kernel-build/artifacts/SHA256SUMS.txt

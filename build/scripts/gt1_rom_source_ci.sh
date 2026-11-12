@@ -6,6 +6,8 @@ cd "$(dirname "$0")/../.."
 ROOT="$PWD"
 
 bash -n build/scripts/gt1_full_rom_build.sh
+bash -n build/scripts/linux_kernel_module_build.sh
+bash -n build/scripts/gt1_rom_source_ci.sh
 bash build/scripts/gt1_full_rom_build.sh audit
 python3 -B - <<'PY'
 from pathlib import Path
@@ -34,6 +36,18 @@ git clone -q --depth 20 --branch lineage-19.1 \
 git -C hardware/amlogic/kernel-modules/mali-driver checkout -q \
   e436241062014f098c12318033385bdc4e5a2fe8
 
+git clone -q --depth 20 --branch lineage-19.1 \
+  https://github.com/LineageOS/android_hardware_amlogic_kernel-modules_media-pie.git \
+  hardware/amlogic/kernel-modules/media-pie
+git -C hardware/amlogic/kernel-modules/media-pie checkout -q \
+  0014f0de13d86f87cae03108b13852ce4e53bb62
+
+git clone -q --depth 20 --branch lineage-19.1 \
+  https://github.com/LineageOS/android_hardware_amlogic_kernel-modules_optee-pie.git \
+  hardware/amlogic/kernel-modules/optee-pie
+git -C hardware/amlogic/kernel-modules/optee-pie checkout -q \
+  47248fb86ac2fc5fc0c75589f132a5b73bb312ee
+
 # Re-run exactly the 13 CI Python source edits in disposable clean Linux clones.
 python3 -B build/scripts/gt1_export_rom_compat.py --verify \
   --kernel-source kernel/amlogic/linux-4.9-pie \
@@ -55,10 +69,15 @@ git -C hardware/amlogic/kernel-modules/mali-driver -c user.name=GT1CI \
 
 for src in kernel/amlogic/linux-4.9-pie \
            hardware/amlogic/kernel-modules/qca9377 \
-           hardware/amlogic/kernel-modules/mali-driver; do
+           hardware/amlogic/kernel-modules/mali-driver \
+           hardware/amlogic/kernel-modules/media-pie \
+           hardware/amlogic/kernel-modules/optee-pie; do
     test -z "$(git -C "$src" status --porcelain)"
     git -C "$src" log -1 --format='%h %s'
 done
+
+test -f hardware/amlogic/kernel-modules/media-pie/drivers/Makefile
+test -f hardware/amlogic/kernel-modules/optee-pie/Makefile
 
 cmp "$ROOT/device/amlogic/gt1v30/dts/gt1_v30_2g.dts" \
     "$ROOT/kernel/amlogic/linux-4.9-pie/arch/arm64/boot/dts/amlogic/gt1_v30_2g.dts"
@@ -68,5 +87,5 @@ if git ls-files | grep -E '(^device_dump/|^vendor/amlogic/gt1v30/proprietary/|\.
     exit 1
 fi
 
-echo 'PASS: source-equivalent ROM patches apply to pinned Linux kernel, QCA and Mali trees'
+echo 'PASS: source-equivalent ROM patches apply to pinned Linux kernel, QCA, Mali, media-pie and optee-pie trees'
 echo 'NOTE: this does NOT build or test an Android 12L userspace image'
