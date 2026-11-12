@@ -155,6 +155,43 @@ jobs:
 
           git -C kernel/amlogic/linux-4.9-pie diff --check
 
+      - name: Fix writeback trace string termination for GCC 9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+          import re
+
+          p = Path("kernel/amlogic/linux-4.9-pie/include/trace/events/writeback.h")
+          s = p.read_text()
+
+          pattern = re.compile(
+              r"strncpy\(__entry->name,\s*([^;]{1,240}?),\s*32\);"
+          )
+
+          matches = list(pattern.finditer(s))
+          assert len(matches) == 10, f"Expected 10 calls; found {len(matches)}"
+
+          s = pattern.sub(
+              lambda m: (
+                  f"strlcpy(__entry->name, {m.group(1)}, "
+                  f"sizeof(__entry->name));"
+              ),
+              s
+          )
+
+          inc = "#include <linux/tracepoint.h>\n"
+          assert s.count(inc) == 1
+          s = s.replace(inc, inc + "#include <linux/string.h>\n", 1)
+
+          p.write_text(s)
+          print("Patched 10 writeback trace name copies")
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
