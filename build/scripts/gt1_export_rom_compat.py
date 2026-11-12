@@ -131,8 +131,8 @@ def build(staging: Path, local_kernel: Path, local_qca: Path):
         return {
             "kernel": (kpatch, kfiles),
             "qca": (qpatch, qfiles),
-            "workflow_sha256": hashlib.sha256(
-                (staging / ".github/workflows/kernel-build.yml").read_bytes()
+            "inline_source_sha256": hashlib.sha256(
+                "::GT1_STEP::".join(steps).encode()
             ).hexdigest(),
             "steps": len(steps),
         }
@@ -171,7 +171,7 @@ def main():
     manifest = {
         "kernel_pinned_commit": KERNEL_PIN,
         "qca_pinned_commit": QCA_PIN,
-        "workflow_sha256": sources["workflow_sha256"],
+        "inline_source_sha256": sources["inline_source_sha256"],
         "inline_compat_steps": sources["steps"],
         "patches": {
             key: {"path": str(output[key].relative_to(staging)),

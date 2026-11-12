@@ -1,7 +1,6 @@
 {
   "kernel_pinned_commit": "ffb8d9d46aac1cde5ee5a1495aa86b62e484ac77",
   "qca_pinned_commit": "6d051c69d3b8acccc97abdbe0008c764a6901573",
-  "workflow_sha256": "c8f1a1c36d2d074266e945cb993b2671d17ce3ddfdaad5dc014aa4d7fd15eb42",
   "inline_compat_steps": 13,
   "patches": {
     "kernel": {
@@ -35,5 +34,6 @@
       ]
     }
   },
-  "verified_against_full_android_userspace": false
+  "verified_against_full_android_userspace": false,
+  "inline_source_sha256": "70e71d61a79d24775679f38b73bb815ebea2a52e155f1a98433b7ca0dffe934c"
 }

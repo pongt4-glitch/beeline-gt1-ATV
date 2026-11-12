@@ -625,3 +625,13 @@ jobs:
             out/linux-kernel-build/artifacts/SHA256SUMS.txt
             out/linux-kernel-build/logs/*.log
           retention-days: 30
+
+  rom-source-integration:
+    name: Validate ROM source matches tested Kernel CI changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout public staging
+        uses: actions/checkout@v4
+      - name: Audit pinned sources, compatibility patches and Device Tree
+        run: bash build/scripts/gt1_rom_source_ci.sh

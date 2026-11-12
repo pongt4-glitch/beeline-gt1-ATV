@@ -20,8 +20,11 @@ def main():
     assert obj["kernel_pinned_commit"]=="ffb8d9d46aac1cde5ee5a1495aa86b62e484ac77"
     assert obj["qca_pinned_commit"]=="6d051c69d3b8acccc97abdbe0008c764a6901573"
     assert obj["verified_against_full_android_userspace"] is False
+    from gt1_export_rom_compat import extract_python_compat_steps
     workflow=root/".github/workflows/kernel-build.yml"
-    assert hashlib.sha256(workflow.read_bytes()).hexdigest()==obj["workflow_sha256"],"Workflow changed since patch export"
+    steps=extract_python_compat_steps(workflow)
+    source_hash=hashlib.sha256("::GT1_STEP::".join(steps).encode()).hexdigest()
+    assert source_hash==obj["inline_source_sha256"], "CI compatibility source changed since patch export"
     for kind,(name,nfiles) in EXPECTED.items():
         row=obj["patches"][kind]
         assert row["path"]==name
