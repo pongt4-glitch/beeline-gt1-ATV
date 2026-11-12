@@ -434,6 +434,45 @@ jobs:
           git -C hardware/amlogic/kernel-modules/qca9377 diff --check
           git -C hardware/amlogic/kernel-modules/qca9377 diff --stat
 
+      - name: Fix QCA9377 SME uninitialized trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          p = Path(
+              "hardware/amlogic/kernel-modules/qca9377/"
+              "AIO/drivers/qcacld-new/CORE/SME/"
+              "src/sme_common/sme_Api.c"
+          )
+          s = p.read_text()
+
+          start = s.index("eHalStatus sme_SetMaxTxPowerPerBand(")
+          end = s.index("eHalStatus sme_SetMaxTxPower(", start)
+          part = s[start:end]
+
+          decl = "\tvos_msg_t msg;\n"
+          trace = (
+              "\tMTRACE(vos_trace(VOS_MODULE_ID_SME,\n"
+              "\t\t\tTRACE_CODE_SME_TX_WDA_MSG, NO_SESSION, msg.type));\n\n"
+          )
+
+          assert part.count(decl) == 1
+          assert part.count(trace) == 1
+
+          part = part.replace(decl, "", 1)
+          part = part.replace(trace, "", 1)
+
+          s = s[:start] + part + s[end:]
+          p.write_text(s)
+
+          print("QCA9377 SME stale trace removed")
+          PY_PATCH
+
+          git -C hardware/amlogic/kernel-modules/qca9377 diff --check
+          git -C hardware/amlogic/kernel-modules/qca9377 diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
