@@ -140,6 +140,21 @@ jobs:
           git -C kernel/amlogic/linux-4.9-pie diff --check
           git -C kernel/amlogic/linux-4.9-pie diff --stat
 
+      - name: Fix legacy task comm copy for GCC 9
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+          p = Path("kernel/amlogic/linux-4.9-pie/fs/exec.c")
+          s = p.read_text()
+          old = "strncpy(buf, tsk->comm, sizeof(tsk->comm));"
+          new = "strncpy(buf, tsk->comm, TASK_COMM_LEN);"
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new))
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
