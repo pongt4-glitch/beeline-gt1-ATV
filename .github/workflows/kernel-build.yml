@@ -585,6 +585,16 @@ jobs:
           fi
           echo "PASS: no stringop-truncation or stringop-overflow warnings"
 
+      - name: Enforce zero QCA9377 packed MSDU pointer warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'adf_nbuf_pvt\.h:[0-9]+:[0-9]+: warning:.*\[-Waddress-of-packed-member\]' out/linux-kernel-build/logs/*.log; then
+            echo "FATAL: legacy packed MSDU descriptor pointer warning has regressed" >&2
+            exit 1
+          fi
+          echo "PASS: QCA9377 no longer takes an unaligned MSDU ID pointer"
+
       - name: Upload Verified Kernel, Modules & Logs Artifacts
         if: always()
         uses: actions/upload-artifact@v4
