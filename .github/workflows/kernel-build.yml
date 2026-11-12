@@ -58,6 +58,50 @@ jobs:
             git -C hardware/amlogic/kernel-modules/qca9377 am "$GITHUB_WORKSPACE"/build/ci-staging/patches/qca9377/*.patch
           fi
 
+      - name: Fix GCC 9 compatibility in legacy kernel sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_PATCH'
+          from pathlib import Path
+
+          root = Path("kernel/amlogic/linux-4.9-pie")
+
+          p = root / "arch/arm64/kernel/ftrace.c"
+          s = p.read_text()
+          start = s.index("void prepare_ftrace_return(")
+          end = s.index("\n#ifdef CONFIG_DYNAMIC_FTRACE", start)
+          fn = s[start:end]
+
+          changes = [
+              ("\tint err;\n",
+               "\tint err;\n\tint trace_depth;\n"),
+              ("\terr = ftrace_push_return_trace(",
+               "\ttrace_depth = trace.depth;\n"
+               "\terr = ftrace_push_return_trace("),
+              ("&trace.depth,", "&trace_depth,"),
+          ]
+          for old, new in changes:
+              assert fn.count(old) == 1, old
+              fn = fn.replace(old, new, 1)
+          p.write_text(s[:start] + fn + s[end:])
+
+          p = root / "kernel/printk/printk.c"
+          s = p.read_text()
+          for old, new in [
+              ('strncpy(devkmsg_log_str, "on", 2)',
+               'memcpy(devkmsg_log_str, "on", 2)'),
+              ('strncpy(devkmsg_log_str, "off", 3)',
+               'memcpy(devkmsg_log_str, "off", 3)'),
+          ]:
+              assert s.count(old) == 1, old
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY_PATCH
+
+          git -C kernel/amlogic/linux-4.9-pie diff --check
+          git -C kernel/amlogic/linux-4.9-pie diff --stat
+
       - name: Step 4 - Install Ubuntu GCC 9 AArch64 Toolchain
         shell: bash
         run: |
